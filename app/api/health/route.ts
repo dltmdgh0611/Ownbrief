@@ -50,11 +50,11 @@ export async function GET() {
         throw new Error('API key not configured')
       }
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" })
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
       
       // Simple test request
       await model.generateContent({
-        contents: [{ parts: [{ text: 'test' }] }]
+        contents: [{ role: 'user', parts: [{ text: 'test' }] }]
       })
       
       statuses.push({
@@ -102,14 +102,15 @@ export async function GET() {
     }
 
     // 4. Check YouTube API
-    if (session?.accessToken) {
+    const accessToken = (session as any)?.accessToken
+    if (accessToken) {
       const ytStart = Date.now()
       try {
         const response = await fetch(
           'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
           {
             headers: {
-              'Authorization': `Bearer ${session.accessToken}`
+              'Authorization': `Bearer ${accessToken}`
             }
           }
         )
