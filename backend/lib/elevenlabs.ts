@@ -39,7 +39,7 @@ export async function generateSpeech(text: string): Promise<Buffer> {
     console.log(`✅ 음성 생성 완료: ${audioBuffer.byteLength}바이트`)
     
     return Buffer.from(audioBuffer)
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ ElevenLabs API 상세 오류:', {
       message: error.message,
       stack: error.stack,
@@ -63,7 +63,7 @@ export async function getAvailableVoices() {
 
     const data = await response.json()
     return data.voices
-  } catch (error) {
+  } catch (error: any) {
     console.error('ElevenLabs Voices Error:', error)
     throw new Error('음성 목록을 가져오는데 실패했습니다.')
   }

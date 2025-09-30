@@ -45,13 +45,13 @@ export async function getYouTubeVideosFromPlaylists(accessToken: string, playlis
 
     // 최근 동영상 5개만 선택
     const recentVideos = allVideos
-      .sort((a, b) => new Date(b.snippet?.publishedAt || 0).getTime() - new Date(a.snippet?.publishedAt || 0).getTime())
+      .sort((a: any, b: any) => new Date(b.snippet?.publishedAt || 0).getTime() - new Date(a.snippet?.publishedAt || 0).getTime())
       .slice(0, 5)
 
     console.log('✅ 최종 선택된 동영상:', {
       totalVideos: allVideos.length,
       selectedVideos: recentVideos.length,
-      videos: recentVideos.map(item => ({
+      videos: recentVideos.map((item: any) => ({
         id: item.snippet?.resourceId?.videoId,
         title: item.snippet?.title,
         publishedAt: item.snippet?.publishedAt
@@ -59,7 +59,7 @@ export async function getYouTubeVideosFromPlaylists(accessToken: string, playlis
     })
 
     return recentVideos
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ YouTube API 상세 오류:', {
       message: error.message,
       stack: error.stack,
@@ -93,7 +93,7 @@ export async function getVideoDetails(videoIds: string[], accessToken: string) {
     const data = await response.json()
     console.log('✅ 동영상 상세 정보 응답 데이터:', {
       itemsCount: data.items?.length || 0,
-      items: data.items?.map(item => ({
+      items: data.items?.map((item: any) => ({
         id: item.id,
         title: item.snippet?.title,
         duration: item.contentDetails?.duration,
@@ -102,7 +102,7 @@ export async function getVideoDetails(videoIds: string[], accessToken: string) {
     })
 
     return data.items || []
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ 동영상 상세 정보 오류:', {
       message: error.message,
       stack: error.stack,

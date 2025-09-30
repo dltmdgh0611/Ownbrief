@@ -63,18 +63,20 @@ export default function DevModePage() {
       const response = await fetch('/api/health')
       const data = await response.json()
       setHealthStatuses(data.statuses || [])
-      setLogs(prev => [...prev, {
+      const newLog: LogEntry = {
         timestamp: new Date().toISOString(),
         level: 'info',
         message: 'Health check completed'
-      }].slice(-50)) // Keep last 50 logs
+      }
+      setLogs(prev => [...prev, newLog].slice(-50))
     } catch (error) {
       console.error('Health check failed:', error)
-      setLogs(prev => [...prev, {
+      const errorLog: LogEntry = {
         timestamp: new Date().toISOString(),
         level: 'error',
         message: `Health check failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      }].slice(-50))
+      }
+      setLogs(prev => [...prev, errorLog].slice(-50))
     } finally {
       setIsRefreshing(false)
     }
