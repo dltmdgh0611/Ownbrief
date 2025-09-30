@@ -3,8 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/backend/lib/auth'
 import { getVideoTranscriptWithApify } from '@/backend/lib/apify-transcript'
 
-// 타임아웃 설정: 15분
-export const maxDuration = 900
+// Vercel Hobby plan max: 300s (5 minutes)
+export const maxDuration = 300
 
 export async function POST(request: NextRequest) {
   console.log('🧪 Apify test started...')

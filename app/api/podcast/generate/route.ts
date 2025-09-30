@@ -6,8 +6,8 @@ import { getVideoTranscript, combineTranscripts } from '@/backend/lib/subtitle'
 import { generatePodcastScript, generateMultiSpeakerSpeech } from '@/backend/lib/gemini'
 import { prisma } from '@/backend/lib/prisma'
 
-// 타임아웃 설정: 15분 (전체 프로세스를 위해)
-export const maxDuration = 900
+// Vercel Hobby plan max: 300s (5 minutes)
+export const maxDuration = 300
 
 export async function POST(request: NextRequest) {
   console.log('🎙️ Podcast generation API started...')

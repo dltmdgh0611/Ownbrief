@@ -5,8 +5,8 @@ import { generateMultiSpeakerSpeech } from '@/backend/lib/gemini'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 
-// 타임아웃 설정: 15분
-export const maxDuration = 900
+// Vercel Hobby plan max: 300s (5 minutes)
+export const maxDuration = 300
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
