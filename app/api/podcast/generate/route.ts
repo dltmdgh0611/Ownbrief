@@ -6,6 +6,9 @@ import { getVideoTranscript, combineTranscripts } from '@/backend/lib/subtitle'
 import { generatePodcastScript, generateMultiSpeakerSpeech } from '@/backend/lib/gemini'
 import { prisma } from '@/backend/lib/prisma'
 
+// 타임아웃 설정: 15분 (전체 프로세스를 위해)
+export const maxDuration = 900
+
 export async function POST(request: NextRequest) {
   console.log('🎙️ Podcast generation API started...')
   
@@ -213,16 +216,25 @@ Thank you!`
 
     // Generate voice (process in background)
     console.log('🎙️ Starting background multi-speaker voice generation...')
-    generateMultiSpeakerSpeech(script).then(async (audioBuffer) => {
+    generateMultiSpeakerSpeech(script).then(async (audioResult) => {
       console.log('✅ Voice generation complete, updating database...')
       // In production, upload to S3 or other storage
       const audioUrl = `/api/podcast/${podcast.id}/audio`
+      
+      // Calculate duration from WAV format
+      let duration = 0
+      if (audioResult.mimeType.includes('wav') && audioResult.buffer.length > 44) {
+        // WAV 헤더에서 정확한 정보 추출
+        const byteRate = audioResult.buffer.readUInt32LE(28)
+        const dataSize = audioResult.buffer.readUInt32LE(40)
+        duration = Math.floor(dataSize / byteRate)
+      }
       
       await prisma.podcast.update({
         where: { id: podcast.id },
         data: {
           audioUrl,
-          duration: Math.floor(audioBuffer.length / 16000), // Approximate calculation
+          duration,
           status: 'completed'
         }
       })

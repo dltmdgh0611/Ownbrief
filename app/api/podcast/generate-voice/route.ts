@@ -6,8 +6,13 @@ import { prisma } from '@/backend/lib/prisma'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 
+// 타임아웃 설정: 최대한 길게 (900초 = 15분)
+export const maxDuration = 900
+
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
   console.log('🎤 Voice generation API started...')
+  console.log(`⏱️ 시작 시간: ${new Date().toLocaleTimeString()}`)
   
   try {
     console.log('🔐 Checking session...')
@@ -19,7 +24,6 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ Authentication successful:', {
-      userId: session.user?.id,
       userEmail: session.user?.email
     })
 
@@ -68,20 +72,55 @@ export async function POST(request: NextRequest) {
 
     // Generate voice
     console.log('🎙️ Starting Gemini multi-speaker voice generation...')
-    const audioBuffer = await generateMultiSpeakerSpeech(script)
-    console.log('✅ Voice generation complete:', audioBuffer.length, 'bytes')
+    const audioResult = await generateMultiSpeakerSpeech(script)
+    console.log('✅ Voice generation complete:', {
+      bufferSize: audioResult.buffer.length,
+      mimeType: audioResult.mimeType
+    })
 
     // Save audio file
     console.log('💾 Saving audio file...')
     const audioDir = join(process.cwd(), 'public', 'audio')
     await mkdir(audioDir, { recursive: true })
     
-    // Gemini TTS returns WAV format, not MP3
-    const audioFileName = `podcast-${podcastId}.wav`
+    // Determine file extension based on MIME type
+    let fileExtension = 'wav'
+    if (audioResult.mimeType.includes('mpeg') || audioResult.mimeType.includes('mp3')) {
+      fileExtension = 'mp3'
+    } else if (audioResult.mimeType.includes('wav')) {
+      fileExtension = 'wav'
+    } else if (audioResult.mimeType.includes('ogg')) {
+      fileExtension = 'ogg'
+    }
+    
+    const audioFileName = `podcast-${podcastId}.${fileExtension}`
     const audioPath = join(audioDir, audioFileName)
     
-    await writeFile(audioPath, audioBuffer)
-    console.log('✅ Audio file saved:', audioPath)
+    await writeFile(audioPath, audioResult.buffer)
+    console.log('✅ Audio file saved:', {
+      path: audioPath,
+      extension: fileExtension,
+      mimeType: audioResult.mimeType
+    })
+
+    // Calculate duration based on WAV format
+    let duration = 0
+    if (fileExtension === 'wav' && audioResult.buffer.length > 44) {
+      // WAV 헤더에서 정확한 정보 추출
+      const sampleRate = audioResult.buffer.readUInt32LE(24)
+      const byteRate = audioResult.buffer.readUInt32LE(28)
+      const dataSize = audioResult.buffer.readUInt32LE(40)
+      
+      duration = Math.floor(dataSize / byteRate)
+      
+      console.log(`📊 WAV 파일 정보:`, {
+        sampleRate,
+        byteRate,
+        dataSize,
+        fileSize: (audioResult.buffer.length / 1024 / 1024).toFixed(2) + 'MB',
+        calculatedDuration: duration + '초'
+      })
+    }
 
     // Update database
     console.log('📊 Updating database...')
@@ -90,7 +129,7 @@ export async function POST(request: NextRequest) {
       where: { id: podcastId },
       data: {
         audioUrl,
-        duration: Math.floor(audioBuffer.length / 16000), // Approximate calculation
+        duration,
         status: 'completed'
       }
     })
@@ -101,14 +140,20 @@ export async function POST(request: NextRequest) {
       status: updatedPodcast.status
     })
 
+    const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2)
+    console.log(`✅ 🎉 음성 생성 완료! 총 소요 시간: ${totalDuration}초 (${(parseFloat(totalDuration) / 60).toFixed(2)}분)`)
+
     return NextResponse.json({
       success: true,
       audioUrl,
       duration: updatedPodcast.duration,
+      processingTime: totalDuration,
       message: 'Voice generation completed successfully'
     })
 
   } catch (error: any) {
+    const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2)
+    console.error(`❌ 음성 생성 실패! 소요 시간: ${totalDuration}초`)
     console.error('❌ Voice generation error:', {
       message: error.message,
       stack: error.stack,
@@ -117,7 +162,10 @@ export async function POST(request: NextRequest) {
       status: error.status
     })
     return NextResponse.json(
-      { error: 'Error occurred during voice generation' },
+      { 
+        error: 'Error occurred during voice generation',
+        processingTime: totalDuration
+      },
       { status: 500 }
     )
   }
