@@ -34,7 +34,7 @@ export async function GET() {
         responseTime: Date.now() - dbStart,
         lastChecked: new Date().toISOString()
       })
-    } catch (error) {
+    } catch (error: any) {
       statuses.push({
         service: 'Database (Supabase)',
         status: 'unhealthy',
@@ -126,7 +126,7 @@ export async function GET() {
         } else {
           throw new Error(`HTTP ${response.status}`)
         }
-      } catch (error) {
+      } catch (error: any) {
         statuses.push({
           service: 'YouTube API',
           status: 'unhealthy',
@@ -173,7 +173,7 @@ export async function GET() {
         } else {
           throw new Error(`HTTP ${response.status}`)
         }
-      } catch (error) {
+      } catch (error: any) {
         statuses.push({
           service: 'Apify',
           status: 'unhealthy',
@@ -207,7 +207,7 @@ export async function GET() {
           lastChecked: new Date().toISOString()
         })
       }
-    } catch (error) {
+    } catch (error: any) {
       statuses.push({
         service: 'NextAuth',
         status: 'unhealthy',
@@ -222,7 +222,7 @@ export async function GET() {
       timestamp: new Date().toISOString()
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Health check error:', error)
     return NextResponse.json(
       {

@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
           console.log('⏳ Waiting 2 seconds for memory cleanup...')
           await new Promise(resolve => setTimeout(resolve, 2000))
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`❌ Subtitle extraction failed ${videoId}:`, error)
         transcripts.push([])
       }
@@ -50,12 +50,12 @@ export async function POST(request: NextRequest) {
 
     console.log('📊 Subtitle extraction results:', {
       totalVideos: videoIds.length,
-      successfulTranscripts: transcripts.filter(t => t.length > 0).length,
-      totalSegments: transcripts.reduce((sum, t) => sum + t.length, 0)
+      successfulTranscripts: transcripts.filter((t: any) => t.length > 0).length,
+      totalSegments: transcripts.reduce((sum: number, t: any) => sum + t.length, 0)
     })
 
     // Combine subtitle texts
-    const combinedTranscript = combineTranscripts(transcripts.filter(t => t.length > 0))
+    const combinedTranscript = combineTranscripts(transcripts.filter((t: any) => t.length > 0))
 
     if (!combinedTranscript || combinedTranscript.trim().length === 0) {
       console.error('❌ No subtitles found')

@@ -48,7 +48,7 @@ export async function GET(
       }
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Audio fetch error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch audio file' },

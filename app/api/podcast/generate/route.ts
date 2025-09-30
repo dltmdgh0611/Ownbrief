@@ -101,14 +101,14 @@ export async function POST(request: NextRequest) {
 
     // Get detailed info for recent 5 videos
     console.log('🔍 Extracting video IDs...')
-    const videoIds = playlistVideos.slice(0, 5).map(video => video.snippet?.resourceId?.videoId).filter(Boolean)
+    const videoIds = playlistVideos.slice(0, 5).map((video: any) => video.snippet?.resourceId?.videoId).filter(Boolean)
     console.log('📝 Extracted video IDs:', videoIds)
     
     console.log('📹 Fetching video details...')
     const videoDetails = await getVideoDetails(videoIds, accessToken)
 
     // Format video info
-    const videoInfos = videoDetails.map(video => ({
+    const videoInfos = videoDetails.map((video: any) => ({
       id: video.id,
       title: video.snippet?.title || 'No title',
       thumbnail: video.snippet?.thumbnails?.default?.url
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
           console.log('⏳ Waiting 2 seconds for memory cleanup...')
           await new Promise(resolve => setTimeout(resolve, 2000))
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`❌ Subtitle extraction failed ${videoId}:`, error)
         transcripts.push([])
       }
@@ -141,23 +141,23 @@ export async function POST(request: NextRequest) {
 
     console.log('📊 Subtitle extraction results:', {
       totalVideos: videoIds.length,
-      successfulTranscripts: transcripts.filter(t => t.length > 0).length,
-      totalSegments: transcripts.reduce((sum, t) => sum + t.length, 0)
+      successfulTranscripts: transcripts.filter((t: any) => t.length > 0).length,
+      totalSegments: transcripts.reduce((sum: number, t: any) => sum + t.length, 0)
     })
 
     // Combine subtitle texts
-    const combinedTranscript = combineTranscripts(transcripts.filter(t => t.length > 0))
+    const combinedTranscript = combineTranscripts(transcripts.filter((t: any) => t.length > 0))
 
     if (!combinedTranscript || combinedTranscript.trim().length === 0) {
       console.error('❌ No subtitles - using fallback with video titles')
       // Use video titles if no subtitles
-      const fallbackText = videoInfos.map(video => video.title).join('. ')
+      const fallbackText = videoInfos.map((video: any) => video.title).join('. ')
       console.log('📝 Using fallback text:', fallbackText.substring(0, 100) + '...')
       
       // Generate simple podcast script
       const script = `Hello! Today I'll introduce some interesting videos for you.
 
-${videoInfos.map((video, index) => `${index + 1}. ${video.title}`).join('\n')}
+${videoInfos.map((video: any, index: number) => `${index + 1}. ${video.title}`).join('\n')}
 
 Let's explore these topics in detail. Please watch each video directly for more information.
 

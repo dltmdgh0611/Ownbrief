@@ -94,14 +94,14 @@ export async function POST(request: NextRequest) {
 
     // Get detailed info for recent 5 videos
     console.log('🔍 Extracting video IDs...')
-    const videoIds = playlistVideos.slice(0, 5).map(video => video.snippet?.resourceId?.videoId).filter(Boolean)
+    const videoIds = playlistVideos.slice(0, 5).map((video: any) => video.snippet?.resourceId?.videoId).filter(Boolean)
     console.log('📝 Extracted video IDs:', videoIds)
     
     console.log('📹 Fetching video details...')
     const videoDetails = await getVideoDetails(videoIds, accessToken)
 
     // Format video info
-    const videoInfos = videoDetails.map(video => ({
+    const videoInfos = videoDetails.map((video: any) => ({
       id: video.id,
       title: video.snippet?.title || 'No title',
       thumbnail: video.snippet?.thumbnails?.default?.url
