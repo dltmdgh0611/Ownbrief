@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/backend/lib/auth'
 import { generateMultiSpeakerSpeech } from '@/backend/lib/gemini'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
 
 // Vercel Hobby plan max: 300s (5 minutes)
 export const maxDuration = 300
@@ -34,11 +32,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ TTS test completed in ${duration}ms`)
 
-    // Save test audio file
-    const audioDir = join(process.cwd(), 'public', 'audio')
-    await mkdir(audioDir, { recursive: true })
-    
-    const timestamp = Date.now()
+    // Determine file extension
     let fileExtension = 'wav'
     if (audioResult.mimeType.includes('mpeg') || audioResult.mimeType.includes('mp3')) {
       fileExtension = 'mp3'
@@ -48,14 +42,19 @@ export async function POST(request: NextRequest) {
       fileExtension = 'ogg'
     }
     
+    const timestamp = Date.now()
     const audioFileName = `test-tts-${timestamp}.${fileExtension}`
-    const audioPath = join(audioDir, audioFileName)
     
-    await writeFile(audioPath, audioResult.buffer)
-    console.log(`💾 Test audio saved: ${audioPath}`)
+    // In Vercel serverless environment, return audio data instead of saving to disk
+    // (Public folder is read-only in Vercel)
+    console.log(`🎵 TTS test generated audio: ${audioFileName}`)
 
     const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2)
     console.log(`✅ 🎉 TTS 테스트 완료! 총 소요 시간: ${totalDuration}초 (${(parseFloat(totalDuration) / 60).toFixed(2)}분)`)
+
+    // Return audio as base64 data URL (Vercel doesn't allow file write)
+    const audioBase64 = audioResult.buffer.toString('base64')
+    const audioDataUrl = `data:${audioResult.mimeType};base64,${audioBase64}`
 
     return NextResponse.json({
       success: true,
@@ -64,7 +63,7 @@ export async function POST(request: NextRequest) {
       mimeType: audioResult.mimeType,
       bufferSize: audioResult.buffer.length,
       fileExtension,
-      audioUrl: `/audio/${audioFileName}`,
+      audioUrl: audioDataUrl,
       bufferHeader: audioResult.buffer.slice(0, 12).toString('hex')
     })
 

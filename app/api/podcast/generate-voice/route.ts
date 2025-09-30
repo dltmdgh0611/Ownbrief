@@ -3,8 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/backend/lib/auth'
 import { generateMultiSpeakerSpeech } from '@/backend/lib/gemini'
 import { prisma } from '@/backend/lib/prisma'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
+import { uploadAudioToStorage } from '@/backend/lib/supabase'
 
 // Vercel Hobby plan max: 300s (5 minutes)
 export const maxDuration = 300
@@ -78,10 +77,8 @@ export async function POST(request: NextRequest) {
       mimeType: audioResult.mimeType
     })
 
-    // Save audio file
-    console.log('💾 Saving audio file...')
-    const audioDir = join(process.cwd(), 'public', 'audio')
-    await mkdir(audioDir, { recursive: true })
+    // Upload audio file to Supabase Storage
+    console.log('💾 Uploading audio file to Supabase Storage...')
     
     // Determine file extension based on MIME type
     let fileExtension = 'wav'
@@ -94,13 +91,15 @@ export async function POST(request: NextRequest) {
     }
     
     const audioFileName = `podcast-${podcastId}.${fileExtension}`
-    const audioPath = join(audioDir, audioFileName)
     
-    await writeFile(audioPath, audioResult.buffer)
-    console.log('✅ Audio file saved:', {
-      path: audioPath,
+    // Upload to Supabase Storage
+    const publicUrl = await uploadAudioToStorage(audioResult.buffer, audioFileName, audioResult.mimeType)
+    
+    console.log('✅ Audio file uploaded:', {
+      fileName: audioFileName,
       extension: fileExtension,
-      mimeType: audioResult.mimeType
+      mimeType: audioResult.mimeType,
+      publicUrl
     })
 
     // Calculate duration based on WAV format
@@ -122,20 +121,19 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Update database
+    // Update database with Supabase Storage URL
     console.log('📊 Updating database...')
-    const audioUrl = `/audio/${audioFileName}`
     const updatedPodcast = await prisma.podcast.update({
       where: { id: podcastId },
       data: {
-        audioUrl,
+        audioUrl: publicUrl,
         duration,
         status: 'completed'
       }
     })
 
     console.log('✅ Database updated:', {
-      audioUrl,
+      audioUrl: publicUrl,
       duration: updatedPodcast.duration,
       status: updatedPodcast.status
     })
@@ -145,7 +143,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      audioUrl,
+      audioUrl: publicUrl,
       duration: updatedPodcast.duration,
       processingTime: totalDuration,
       message: 'Voice generation completed successfully'
