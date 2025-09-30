@@ -11,8 +11,9 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🔐 Checking session...')
     const session = await getServerSession(authOptions)
+    const accessToken = (session as any)?.accessToken
     
-    if (!session?.accessToken) {
+    if (!accessToken) {
       console.error('❌ Authentication failed: No session or access token')
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }

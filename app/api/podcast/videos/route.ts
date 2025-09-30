@@ -10,16 +10,16 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🔐 Checking session...')
     const session = await getServerSession(authOptions)
+    const accessToken = (session as any)?.accessToken
     
-    if (!session?.accessToken) {
+    if (!accessToken) {
       console.error('❌ Authentication failed: No session or access token')
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
     console.log('✅ Authentication successful:', {
-      userId: session.user?.id,
-      userEmail: session.user?.email,
-      accessTokenLength: session.accessToken?.length
+      userEmail: session?.user?.email,
+      accessTokenLength: accessToken?.length
     })
 
     // Fetch user settings
@@ -27,11 +27,11 @@ export async function POST(request: NextRequest) {
     
     // Find user
     const user = await prisma.user.findUnique({
-      where: { email: session.user?.email || 'unknown' }
+      where: { email: session?.user?.email || 'unknown' }
     })
 
     if (!user) {
-      console.error('❌ User not found:', session.user?.email)
+      console.error('❌ User not found:', session?.user?.email)
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
     
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     // Fetch videos from selected playlists
     console.log('🎬 Fetching videos from selected playlists...')
-    const playlistVideos = await getYouTubeVideosFromPlaylists(session.accessToken, selectedPlaylists)
+    const playlistVideos = await getYouTubeVideosFromPlaylists(accessToken, selectedPlaylists)
     
     console.log('📊 Playlist videos result:', {
       videosCount: playlistVideos?.length || 0,
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     console.log('📝 Extracted video IDs:', videoIds)
     
     console.log('📹 Fetching video details...')
-    const videoDetails = await getVideoDetails(videoIds, session.accessToken)
+    const videoDetails = await getVideoDetails(videoIds, accessToken)
 
     // Format video info
     const videoInfos = videoDetails.map(video => ({

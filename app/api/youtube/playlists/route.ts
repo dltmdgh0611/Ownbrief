@@ -5,8 +5,9 @@ import { authOptions } from '@/backend/lib/auth'
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
+    const accessToken = (session as any)?.accessToken
     
-    if (!session?.accessToken) {
+    if (!accessToken) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
@@ -15,7 +16,7 @@ export async function GET() {
     // Fetch playlists from YouTube API
     const response = await fetch(`https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&mine=true&maxResults=50`, {
       headers: {
-        'Authorization': `Bearer ${session.accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Accept': 'application/json'
       }
     })
