@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react'
 import Header from '@/frontend/components/Header'
 import PodcastGenerator from '@/frontend/components/PodcastGenerator'
+import { Mic2, Sparkles, Zap, Headphones } from 'lucide-react'
 
 export default function Home() {
   const { data: session, status } = useSession()
@@ -12,7 +13,7 @@ export default function Home() {
       <div className="min-h-screen bg-gray-50">
         <Header />
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-emerald-600 border-t-transparent"></div>
         </div>
       </div>
     )
@@ -20,39 +21,93 @@ export default function Home() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
         <Header />
-        <div className="max-w-4xl mx-auto px-4 py-16">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              AI Cast에 오신 것을 환영합니다
+        <main className="px-4 py-8 pb-24">
+          <div className="text-center mb-8 fade-in">
+            <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
+              <Mic2 className="w-10 h-10 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-3">
+              OwnBrief에
+              <br />
+              오신 것을 환영합니다
             </h1>
-            <p className="text-xl text-gray-600 mb-8">
-              유튜브 나중에 볼 동영상을 바탕으로 AI가 팟캐스트를 생성합니다
+            <p className="text-base text-gray-600 px-4">
+              유튜브 동영상을 AI가 팟캐스트로 변환합니다
             </p>
-            <div className="bg-white rounded-lg shadow-md p-8 max-w-2xl mx-auto">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">시작하기</h2>
-              <p className="text-gray-600 mb-6">
-                구글 계정으로 로그인하여 유튜브 나중에 볼 동영상 목록에 접근하고 
-                AI가 생성한 팟캐스트를 들어보세요.
-              </p>
-              <ul className="text-left text-gray-600 space-y-2 mb-6">
-                <li>• 유튜브 나중에 볼 동영상에서 최근 5개 동영상 선택</li>
-                <li>• 자막 정보를 추출하여 텍스트로 변환</li>
-                <li>• OpenAI를 통해 자연스러운 팟캐스트 스크립트 생성</li>
-                <li>• ElevenLabs를 통해 실제 음성과 같은 팟캐스트 생성</li>
-              </ul>
+          </div>
+
+          <div className="space-y-4 mb-8">
+            <div className="app-card p-5 fade-in" style={{animationDelay: '0.1s'}}>
+              <div className="flex items-start space-x-4">
+                <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-6 h-6 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-1">똑똑한 AI 분석</h3>
+                  <p className="text-sm text-gray-600">
+                    유튜브 동영상의 자막을 분석하여 핵심 내용을 추출합니다
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="app-card p-5 fade-in" style={{animationDelay: '0.2s'}}>
+              <div className="flex items-start space-x-4">
+                <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Zap className="w-6 h-6 text-teal-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-1">빠른 생성</h3>
+                  <p className="text-sm text-gray-600">
+                    단 몇 분만에 자연스러운 팟캐스트 스크립트를 생성합니다
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="app-card p-5 fade-in" style={{animationDelay: '0.3s'}}>
+              <div className="flex items-start space-x-4">
+                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Headphones className="w-6 h-6 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-1">실제 같은 음성</h3>
+                  <p className="text-sm text-gray-600">
+                    ElevenLabs를 통해 사람과 같은 자연스러운 음성을 생성합니다
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+
+          <div className="app-card p-6 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-100 fade-in" style={{animationDelay: '0.4s'}}>
+            <h2 className="text-lg font-bold text-gray-900 mb-3">시작하기</h2>
+            <ul className="space-y-2 text-sm text-gray-700 mb-4">
+              <li className="flex items-center space-x-2">
+                <div className="w-1.5 h-1.5 bg-emerald-600 rounded-full"></div>
+                <span>구글 계정으로 로그인</span>
+              </li>
+              <li className="flex items-center space-x-2">
+                <div className="w-1.5 h-1.5 bg-emerald-600 rounded-full"></div>
+                <span>유튜브 플레이리스트 연동</span>
+              </li>
+              <li className="flex items-center space-x-2">
+                <div className="w-1.5 h-1.5 bg-emerald-600 rounded-full"></div>
+                <span>AI가 자동으로 팟캐스트 생성</span>
+              </li>
+            </ul>
+          </div>
+        </main>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <Header />
-      <main className="py-8">
+      <main className="pb-6">
         <PodcastGenerator />
       </main>
     </div>

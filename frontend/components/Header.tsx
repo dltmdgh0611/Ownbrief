@@ -2,60 +2,55 @@
 
 import { useSession, signIn, signOut } from 'next-auth/react'
 import Link from 'next/link'
-import { User, LogOut, Settings } from 'lucide-react'
+import { User, Settings, Sparkles } from 'lucide-react'
 
 export default function Header() {
   const { data: session, status } = useSession()
 
   return (
-    <header className="bg-white shadow-sm border-b">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-gray-900">OwnBrief</h1>
-            <span className="ml-2 text-sm text-gray-500">AI 팟캐스트 생성기</span>
+    <header className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white sticky top-0 z-50 shadow-lg">
+      <div className="px-4 py-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+              <Sparkles className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold">OwnBrief</h1>
+              <p className="text-xs text-white/80">AI 팟캐스트</p>
+            </div>
           </div>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
             {status === 'loading' ? (
-              <div className="animate-pulse bg-gray-200 h-8 w-8 rounded-full"></div>
+              <div className="animate-pulse bg-white/20 h-10 w-10 rounded-full"></div>
             ) : session ? (
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2">
-                  {session.user?.image ? (
-                    <img
-                      src={session.user.image}
-                      alt={session.user.name || 'User'}
-                      className="h-8 w-8 rounded-full"
-                    />
-                  ) : (
-                    <User className="h-8 w-8 text-gray-400" />
-                  )}
-                  <span className="text-sm font-medium text-gray-700">
-                    {session.user?.name || session.user?.email}
-                  </span>
-                </div>
+              <div className="flex items-center space-x-2">
                 <Link
                   href="/settings"
-                  className="flex items-center space-x-1 text-sm text-gray-500 hover:text-gray-700"
+                  className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors backdrop-blur-sm"
+                  title="설정"
                 >
-                  <Settings className="h-4 w-4" />
-                  <span>설정</span>
+                  <Settings className="w-5 h-5" />
                 </Link>
-                <button
-                  onClick={() => signOut()}
-                  className="flex items-center space-x-1 text-sm text-gray-500 hover:text-gray-700"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span>로그아웃</span>
-                </button>
+                {session.user?.image ? (
+                  <img
+                    src={session.user.image}
+                    alt={session.user.name || 'User'}
+                    className="h-10 w-10 rounded-full border-2 border-white/30"
+                  />
+                ) : (
+                  <div className="h-10 w-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                    <User className="w-5 h-5" />
+                  </div>
+                )}
               </div>
             ) : (
               <button
                 onClick={() => signIn('google')}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                className="bg-white text-emerald-600 px-5 py-2.5 rounded-full text-sm font-bold hover:bg-white/90 transition-all shadow-lg"
               >
-                구글로 로그인
+                로그인
               </button>
             )}
           </div>

@@ -9,6 +9,18 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'AI Cast - AI 팟캐스트 생성기',
   description: '유튜브 나중에 볼 동영상을 바탕으로 AI가 팟캐스트를 생성합니다.',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    viewportFit: 'cover',
+  },
+  themeColor: '#059669',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+  },
 }
 
 export default function RootLayout({
@@ -20,8 +32,10 @@ export default function RootLayout({
     <html lang="ko">
       <body className={inter.className}>
         <Providers>
-          {children}
-          <DevModeLink />
+          <div className="mobile-app-container">
+            {children}
+            <DevModeLink />
+          </div>
         </Providers>
       </body>
     </html>

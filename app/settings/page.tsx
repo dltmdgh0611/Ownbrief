@@ -129,141 +129,154 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center space-x-4 mb-6">
-              <Link
-                href="/"
-                className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors"
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      {/* 헤더 */}
+      <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 sticky top-0 z-50 shadow-lg">
+        <div className="flex items-center space-x-3">
+          <Link
+            href="/"
+            className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors backdrop-blur-sm"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div className="flex items-center space-x-2">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+              <Settings className="h-6 w-6" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold">설정</h1>
+              <p className="text-xs text-white/80">앱 설정 관리</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 py-6">
+        {message && (
+          <div className={`mb-4 p-4 rounded-xl font-medium text-sm ${
+            message.includes('실패') || message.includes('오류') 
+              ? 'bg-red-50 text-red-700 border-2 border-red-200' 
+              : 'bg-green-50 text-green-700 border-2 border-green-200'
+          }`}>
+            {message}
+          </div>
+        )}
+
+        <div className="space-y-6">
+          {/* 플레이리스트 설정 */}
+          <div className="app-card p-5">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">
+              플레이리스트 선택
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              팟캐스트 생성에 사용할 플레이리스트를 선택하세요.
+            </p>
+            
+            <div className="flex items-center justify-between mb-4 pb-4 border-b">
+              <div className="text-sm">
+                <span className="text-gray-600">선택된 플레이리스트</span>
+                <span className="ml-2 font-bold text-emerald-600">{selectedPlaylists.length}개</span>
+              </div>
+              
+              <button
+                onClick={fetchPlaylists}
+                disabled={isLoading}
+                className="flex items-center space-x-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 font-medium"
               >
-                <ArrowLeft className="h-5 w-5" />
-                <span>메인으로</span>
-              </Link>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-                <Settings className="h-8 w-8 mr-3 text-blue-600" />
-                설정
-              </h1>
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Settings className="h-4 w-4" />
+                )}
+                <span>새로고침</span>
+              </button>
             </div>
 
-            {message && (
-              <div className={`mb-6 p-4 rounded-md ${
-                message.includes('실패') || message.includes('오류') 
-                  ? 'bg-red-100 text-red-700' 
-                  : 'bg-green-100 text-green-700'
-              }`}>
-                {message}
-              </div>
-            )}
-
-            <div className="space-y-8">
-              {/* 플레이리스트 설정 */}
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                  팟캐스트 소스 플레이리스트 선택
-                </h2>
-                <p className="text-gray-600 mb-4">
-                  팟캐스트 생성 시 사용할 플레이리스트를 선택하세요. 선택된 플레이리스트의 동영상들이 분석됩니다.
-                </p>
-                
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-4">
-                    <button
-                      onClick={fetchPlaylists}
-                      disabled={isLoading}
-                      className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors disabled:opacity-50"
-                    >
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Settings className="h-4 w-4" />
-                      )}
-                      <span>플레이리스트 새로고침</span>
-                    </button>
-                    
-                    <div className="text-sm text-gray-600">
-                      선택된 플레이리스트: {selectedPlaylists.length}개
-                    </div>
-                  </div>
-                  
-                  <button
-                    onClick={saveSettings}
-                    disabled={isSaving}
-                    className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors disabled:opacity-50"
-                  >
-                    {isSaving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                    <span>설정 저장</span>
-                  </button>
+            {isLoading ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
                 </div>
-
-                {isLoading ? (
+                <p className="text-sm text-gray-600">플레이리스트를 가져오는 중...</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {playlists.length === 0 ? (
                   <div className="text-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-2" />
-                    <p className="text-gray-600">플레이리스트를 가져오는 중...</p>
+                    <p className="text-sm text-gray-500">
+                      플레이리스트가 없습니다.
+                      <br />
+                      YouTube에서 플레이리스트를 먼저 생성해주세요.
+                    </p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {playlists.length === 0 ? (
-                      <p className="text-gray-500 text-center py-8">
-                        플레이리스트가 없습니다. YouTube에서 플레이리스트를 먼저 생성해주세요.
-                      </p>
-                    ) : (
-                      playlists.map((playlist) => (
-                        <div key={playlist.id} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-md hover:bg-gray-50">
-                          <input
-                            type="checkbox"
-                            id={playlist.id}
-                            checked={selectedPlaylists.includes(playlist.id)}
-                            onChange={() => handlePlaylistToggle(playlist.id)}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <label htmlFor={playlist.id} className="flex-1 cursor-pointer">
-                            <div className="font-medium text-gray-900">{playlist.title}</div>
-                            {playlist.description && (
-                              <div className="text-sm text-gray-500">{playlist.description}</div>
-                            )}
-                            {playlist.itemCount !== undefined && (
-                              <div className="text-xs text-gray-400">
-                                {playlist.itemCount}개 동영상
-                              </div>
-                            )}
-                          </label>
+                  playlists.map((playlist) => (
+                    <div key={playlist.id} className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200 hover:border-emerald-300 transition-colors">
+                      <label htmlFor={playlist.id} className="flex items-start space-x-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id={playlist.id}
+                          checked={selectedPlaylists.includes(playlist.id)}
+                          onChange={() => handlePlaylistToggle(playlist.id)}
+                          className="mt-1 h-5 w-5 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-gray-900 mb-1">{playlist.title}</div>
+                          {playlist.description && (
+                            <div className="text-sm text-gray-600 mb-2 line-clamp-2">{playlist.description}</div>
+                          )}
+                          {playlist.itemCount !== undefined && (
+                            <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full inline-block">
+                              📹 {playlist.itemCount}개 동영상
+                            </div>
+                          )}
                         </div>
-                      ))
-                    )}
-                  </div>
+                      </label>
+                    </div>
+                  ))
                 )}
               </div>
+            )}
+          </div>
 
-              {/* 계정 관리 */}
-              <div className="border-t pt-8">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                  계정 관리
-                </h2>
-                
-                <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-red-900">계정 삭제</h3>
-                      <p className="text-sm text-red-700 mt-1">
-                        계정과 모든 데이터를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleDeleteAccount}
-                      className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      <span>계정 삭제</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+          {/* 저장 버튼 */}
+          <button
+            onClick={saveSettings}
+            disabled={isSaving}
+            className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>저장 중...</span>
+              </>
+            ) : (
+              <>
+                <Save className="h-5 w-5" />
+                <span>설정 저장하기</span>
+              </>
+            )}
+          </button>
+
+          {/* 계정 관리 */}
+          <div className="app-card p-5 border-2 border-red-200">
+            <h2 className="text-lg font-bold text-gray-900 mb-2 flex items-center space-x-2">
+              <Trash2 className="h-5 w-5 text-red-600" />
+              <span>계정 관리</span>
+            </h2>
+            
+            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4">
+              <h3 className="font-bold text-red-900 mb-2">⚠️ 계정 삭제</h3>
+              <p className="text-sm text-red-700 mb-4 leading-relaxed">
+                계정과 모든 데이터를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+              </p>
+              <button
+                onClick={handleDeleteAccount}
+                className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
+              >
+                <Trash2 className="h-5 w-5" />
+                <span>계정 삭제</span>
+              </button>
             </div>
           </div>
         </div>
