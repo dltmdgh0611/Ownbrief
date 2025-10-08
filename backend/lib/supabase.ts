@@ -36,6 +36,11 @@ export async function uploadAudioToStorage(
   try {
     const supabase = getSupabaseClient()
     
+    console.log('🔍 Supabase 클라이언트 정보:', {
+      url: supabase.supabaseUrl,
+      hasKey: !!supabase.supabaseKey
+    })
+    
     // Upload to 'podcasts' bucket
     const { data, error } = await supabase.storage
       .from('podcasts')
@@ -46,7 +51,12 @@ export async function uploadAudioToStorage(
       })
 
     if (error) {
-      console.error('❌ Supabase Storage upload error:', error)
+      console.error('❌ Supabase Storage upload error 상세:', {
+        message: error.message,
+        statusCode: error.statusCode,
+        error: error.error,
+        name: error.name
+      })
       throw error
     }
 

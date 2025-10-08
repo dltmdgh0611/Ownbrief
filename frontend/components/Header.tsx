@@ -2,21 +2,21 @@
 
 import { useSession, signIn, signOut } from 'next-auth/react'
 import Link from 'next/link'
-import { User, Settings, Sparkles } from 'lucide-react'
+import { User, Settings, Mic2 } from 'lucide-react'
 
 export default function Header() {
   const { data: session, status } = useSession()
 
   return (
-    <header className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white sticky top-0 z-50 shadow-lg">
+    <header className="bg-gradient-to-r from-brand to-brand-light text-white sticky top-0 z-50 shadow-lg">
       <div className="px-4 py-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-              <Sparkles className="w-6 h-6 text-white" />
+              <Mic2 className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">OwnBrief</h1>
+              <h1 className="text-xl font-bold">Ownbrief</h1>
               <p className="text-xs text-white/80">AI 팟캐스트</p>
             </div>
           </div>
@@ -48,7 +48,7 @@ export default function Header() {
             ) : (
               <button
                 onClick={() => signIn('google')}
-                className="bg-white text-emerald-600 px-5 py-2.5 rounded-full text-sm font-bold hover:bg-white/90 transition-all shadow-lg"
+                className="bg-white text-brand px-5 py-2.5 rounded-full text-sm font-bold hover:bg-white/90 transition-all shadow-lg"
               >
                 로그인
               </button>

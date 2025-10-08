@@ -40,6 +40,10 @@ export default function DevModePage() {
   const [isTestingApify, setIsTestingApify] = useState(false)
   const [isTestingTts, setIsTestingTts] = useState(false)
   const [isTestingScript, setIsTestingScript] = useState(false)
+  const [isTestingPodcastUpload, setIsTestingPodcastUpload] = useState(false)
+  const [isTestingSupabaseUpload, setIsTestingSupabaseUpload] = useState(false)
+  const [testPodcastUrl, setTestPodcastUrl] = useState('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3')
+  const [testPodcastTitle, setTestPodcastTitle] = useState('테스트 팟캐스트')
   const [testResults, setTestResults] = useState<{[key: string]: TestResult}>({})
 
   useEffect(() => {
@@ -207,6 +211,67 @@ export default function DevModePage() {
     }
   }
 
+  const testPodcastUpload = async () => {
+    setIsTestingPodcastUpload(true)
+    addLog('info', `Testing podcast upload: ${testPodcastTitle}`)
+    
+    try {
+      const response = await fetch('/api/dev/test-podcast-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          audioUrl: testPodcastUrl,
+          title: testPodcastTitle,
+          description: '개발자 모드 테스트 팟캐스트',
+          duration: 180
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        setTestResults(prev => ({ ...prev, podcastUpload: { success: true, data } }))
+        addLog('success', `Podcast upload successful: ${data.podcast.id}`)
+      } else {
+        setTestResults(prev => ({ ...prev, podcastUpload: { success: false, error: data.error } }))
+        addLog('error', `Podcast upload failed: ${data.error}`)
+      }
+    } catch (error: any) {
+      setTestResults(prev => ({ ...prev, podcastUpload: { success: false, error: error.message } }))
+      addLog('error', `Podcast upload error: ${error.message}`)
+    } finally {
+      setIsTestingPodcastUpload(false)
+    }
+  }
+
+  const testSupabaseUpload = async () => {
+    setIsTestingSupabaseUpload(true)
+    addLog('info', 'Testing Supabase Storage upload (실제 파일 업로드)')
+    
+    try {
+      const response = await fetch('/api/dev/test-supabase-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        setTestResults(prev => ({ ...prev, supabaseUpload: { success: true, data } }))
+        addLog('success', `Supabase upload successful: ${data.fileName} (${(data.fileSize / 1024).toFixed(2)}KB)`)
+      } else {
+        setTestResults(prev => ({ ...prev, supabaseUpload: { success: false, error: data.error } }))
+        addLog('error', `Supabase upload failed: ${data.error}`)
+      }
+    } catch (error: any) {
+      setTestResults(prev => ({ ...prev, supabaseUpload: { success: false, error: error.message } }))
+      addLog('error', `Supabase upload error: ${error.message}`)
+    } finally {
+      setIsTestingSupabaseUpload(false)
+    }
+  }
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -355,7 +420,7 @@ export default function DevModePage() {
             <span>Component Tests</span>
           </h2>
           
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Apify Test */}
             <div className="bg-gray-700 rounded-lg p-4">
               <div className="flex items-center space-x-2 mb-3">
@@ -523,6 +588,131 @@ export default function DevModePage() {
                       {testResults.tts.data?.processingTime && (
                         <div className="text-xs mt-1">소요시간: {testResults.tts.data.processingTime}초</div>
                       )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Supabase Storage Test */}
+            <div className="bg-gray-700 rounded-lg p-4">
+              <div className="flex items-center space-x-2 mb-3">
+                <Database className="h-5 w-5 text-yellow-400" />
+                <h3 className="font-bold">4. Supabase Storage</h3>
+              </div>
+              
+              <div className="text-xs text-gray-400 mb-3">
+                실제 오디오 파일을 Supabase에 업로드하여<br/>
+                bucket not found 에러를 테스트합니다.
+              </div>
+              
+              <button
+                onClick={testSupabaseUpload}
+                disabled={isTestingSupabaseUpload}
+                className="w-full bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-600 text-white px-4 py-2 rounded flex items-center justify-center space-x-2"
+              >
+                {isTestingSupabaseUpload ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Uploading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4" />
+                    <span>Storage 업로드</span>
+                  </>
+                )}
+              </button>
+              
+              {testResults.supabaseUpload && (
+                <div className={`mt-3 p-3 rounded text-sm ${testResults.supabaseUpload.success ? 'bg-green-900/30 text-green-300' : 'bg-red-900/30 text-red-300'}`}>
+                  {testResults.supabaseUpload.success ? (
+                    <div>
+                      <div className="font-bold mb-1">✓ 업로드 성공</div>
+                      <div>파일: {testResults.supabaseUpload.data.fileName}</div>
+                      <div>크기: {(testResults.supabaseUpload.data.fileSize / 1024).toFixed(2)}KB</div>
+                      <div className="mt-2 text-xs break-all">
+                        URL: {testResults.supabaseUpload.data.publicUrl}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="font-bold mb-1">✗ 업로드 실패</div>
+                      <div className="text-xs font-bold text-red-400">
+                        {testResults.supabaseUpload.error}
+                      </div>
+                      {testResults.supabaseUpload.data?.details && (
+                        <div className="text-xs mt-2 opacity-75">
+                          {JSON.stringify(testResults.supabaseUpload.data.details, null, 2)}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Podcast Upload Test */}
+            <div className="bg-gray-700 rounded-lg p-4">
+              <div className="flex items-center space-x-2 mb-3">
+                <Database className="h-5 w-5 text-green-400" />
+                <h3 className="font-bold">5. Podcast DB 업로드</h3>
+              </div>
+              
+              <input
+                type="text"
+                value={testPodcastTitle}
+                onChange={(e) => setTestPodcastTitle(e.target.value)}
+                placeholder="팟캐스트 제목"
+                className="w-full bg-gray-600 text-white px-3 py-2 rounded mb-2 text-sm"
+              />
+
+              <input
+                type="text"
+                value={testPodcastUrl}
+                onChange={(e) => setTestPodcastUrl(e.target.value)}
+                placeholder="MP3 URL (또는 비워두면 기본 샘플)"
+                className="w-full bg-gray-600 text-white px-3 py-2 rounded mb-3 text-sm"
+              />
+              
+              <button
+                onClick={testPodcastUpload}
+                disabled={isTestingPodcastUpload}
+                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white px-4 py-2 rounded flex items-center justify-center space-x-2"
+              >
+                {isTestingPodcastUpload ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Uploading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4" />
+                    <span>DB에 업로드</span>
+                  </>
+                )}
+              </button>
+              
+              {testResults.podcastUpload && (
+                <div className={`mt-3 p-3 rounded text-sm ${testResults.podcastUpload.success ? 'bg-green-900/30 text-green-300' : 'bg-red-900/30 text-red-300'}`}>
+                  {testResults.podcastUpload.success ? (
+                    <div>
+                      <div className="font-bold mb-1">✓ DB 저장 성공</div>
+                      <div>ID: {testResults.podcastUpload.data.podcast.id}</div>
+                      <div>제목: {testResults.podcastUpload.data.podcast.title}</div>
+                      <div>상태: {testResults.podcastUpload.data.podcast.status}</div>
+                      {testResults.podcastUpload.data.podcast.audioUrl && (
+                        <div className="mt-2">
+                          <audio controls className="w-full">
+                            <source src={testResults.podcastUpload.data.podcast.audioUrl} type="audio/mpeg" />
+                          </audio>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="font-bold mb-1">✗ 실패</div>
+                      <div className="text-xs">{testResults.podcastUpload.error}</div>
                     </div>
                   )}
                 </div>

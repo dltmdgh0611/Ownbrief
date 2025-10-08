@@ -1,14 +1,11 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 import DevModeLink from '@/frontend/components/DevModeLink'
 
-const inter = Inter({ subsets: ['latin'] })
-
 export const metadata: Metadata = {
-  title: 'AI Cast - AI 팟캐스트 생성기',
-  description: '유튜브 나중에 볼 동영상을 바탕으로 AI가 팟캐스트를 생성합니다.',
+  title: 'Ownbrief - AI 팟캐스트 생성기',
+  description: 'Ownbrief는 유튜브 동영상을 AI가 팟캐스트로 변환합니다.',
   viewport: {
     width: 'device-width',
     initialScale: 1,
@@ -16,7 +13,7 @@ export const metadata: Metadata = {
     userScalable: false,
     viewportFit: 'cover',
   },
-  themeColor: '#059669',
+  themeColor: '#1C543E',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -30,7 +27,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body className={inter.className}>
+      <body>
         <Providers>
           <div className="mobile-app-container">
             {children}

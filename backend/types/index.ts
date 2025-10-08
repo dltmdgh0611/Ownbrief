@@ -23,8 +23,20 @@ export interface UserSettings {
   id: string
   userId: string
   selectedPlaylists: string[]
+  interests: string[]
+  onboardingCompleted: boolean
   createdAt: Date
   updatedAt: Date
+}
+
+export interface OnboardingStatus {
+  isNewUser: boolean
+  needsOnboarding: boolean
+  settings: {
+    onboardingCompleted: boolean
+    interests: string[]
+    selectedPlaylists: string[]
+  } | null
 }
 
 export interface Playlist {

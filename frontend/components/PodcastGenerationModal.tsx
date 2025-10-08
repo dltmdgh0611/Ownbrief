@@ -166,9 +166,9 @@ export default function PodcastGenerationModal({ isOpen, onClose, onComplete }: 
   const getStepIcon = (status: GenerationStep['status']) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="h-5 w-5 text-green-500" />
+        return <CheckCircle className="h-5 w-5 text-brand" />
       case 'loading':
-        return <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+        return <Loader2 className="h-5 w-5 text-brand animate-spin" />
       case 'error':
         return <X className="h-5 w-5 text-red-500" />
       default:
@@ -203,7 +203,7 @@ export default function PodcastGenerationModal({ isOpen, onClose, onComplete }: 
                     <div className="flex items-center space-x-2">
                       <span className="font-medium text-gray-900">{step.title}</span>
                       {index === currentStep && step.status === 'loading' && (
-                        <span className="text-sm text-blue-600">진행 중...</span>
+                        <span className="text-sm text-brand">진행 중...</span>
                       )}
                     </div>
                     <p className="text-sm text-gray-600">{step.description}</p>
@@ -227,7 +227,7 @@ export default function PodcastGenerationModal({ isOpen, onClose, onComplete }: 
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">{video.title}</p>
                     </div>
-                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <CheckCircle className="h-4 w-4 text-brand" />
                   </div>
                 ))}
               </div>
@@ -252,12 +252,12 @@ export default function PodcastGenerationModal({ isOpen, onClose, onComplete }: 
           {/* 완료 메시지 */}
           {steps[4].status === 'completed' && (
             <div className="text-center py-8">
-              <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+              <CheckCircle className="h-16 w-16 text-brand mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">팟캐스트 생성 완료!</h3>
               <p className="text-gray-600 mb-4">AI가 생성한 팟캐스트가 준비되었습니다.</p>
               <button
                 onClick={onClose}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium"
+                className="bg-brand hover:bg-brand-dark text-white px-6 py-2 rounded-md font-medium"
               >
                 확인
               </button>

@@ -52,7 +52,8 @@ export class UserService {
    */
   static async saveUserSettings(
     userEmail: string,
-    selectedPlaylists: string[]
+    selectedPlaylists: string[],
+    interests?: string[]
   ): Promise<UserSettings> {
     const user = await prisma.user.findUnique({
       where: { email: userEmail }
@@ -80,13 +81,20 @@ export class UserService {
       }
     }
 
+    // 업데이트할 데이터 준비
+    const updateData: any = { selectedPlaylists }
+    if (interests !== undefined) {
+      updateData.interests = interests
+    }
+
     // Upsert 실행
     return await prisma.userSettings.upsert({
       where: { userId: user.id },
-      update: { selectedPlaylists },
+      update: updateData,
       create: {
         userId: user.id,
-        selectedPlaylists
+        selectedPlaylists,
+        interests: interests || []
       }
     })
   }
@@ -103,9 +111,41 @@ export class UserService {
       throw new Error('사용자를 찾을 수 없습니다.')
     }
 
-    // Cascade 설정으로 인해 관련 데이터도 자동 삭제됨
-    await prisma.user.delete({
-      where: { id: user.id }
+    console.log('🗑️ 계정 삭제 시작 - userId:', user.id);
+
+    // 트랜잭션으로 모든 관련 데이터 삭제
+    await prisma.$transaction(async (tx) => {
+      // 1. UserSettings 삭제
+      const deletedSettings = await tx.userSettings.deleteMany({
+        where: { userId: user.id }
+      })
+      console.log('✅ UserSettings 삭제:', deletedSettings.count);
+
+      // 2. Podcast 삭제 (Cascade로 자동 삭제되지만 명시적으로)
+      const deletedPodcasts = await tx.podcast.deleteMany({
+        where: { userId: user.id }
+      })
+      console.log('✅ Podcasts 삭제:', deletedPodcasts.count);
+
+      // 3. Session 삭제 (Cascade로 자동 삭제되지만 명시적으로)
+      const deletedSessions = await tx.session.deleteMany({
+        where: { userId: user.id }
+      })
+      console.log('✅ Sessions 삭제:', deletedSessions.count);
+
+      // 4. Account 삭제 (Cascade로 자동 삭제되지만 명시적으로)
+      const deletedAccounts = await tx.account.deleteMany({
+        where: { userId: user.id }
+      })
+      console.log('✅ Accounts 삭제:', deletedAccounts.count);
+
+      // 5. 마지막으로 User 삭제
+      await tx.user.delete({
+        where: { id: user.id }
+      })
+      console.log('✅ User 삭제 완료');
     })
+
+    console.log('🎉 모든 사용자 데이터 삭제 완료!');
   }
 }

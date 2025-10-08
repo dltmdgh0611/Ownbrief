@@ -7,6 +7,12 @@ import { prisma } from "./prisma"
 declare module "next-auth" {
   interface Session {
     accessToken?: string
+    user: {
+      id: string
+      name?: string | null
+      email?: string | null
+      image?: string | null
+    }
   }
 }
 
@@ -15,6 +21,7 @@ declare module "next-auth/jwt" {
     accessToken?: string
     refreshToken?: string
     expiresAt?: number
+    userId?: string
   }
 }
 
@@ -32,16 +39,25 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account, user }) {
       if (account) {
         token.accessToken = account.access_token
         token.refreshToken = account.refresh_token
         token.expiresAt = account.expires_at
       }
+      if (user) {
+        token.userId = user.id
+      }
       return token
     },
-    async session({ session, token }) {
+    async session({ session, token, user }) {
       session.accessToken = token.accessToken as string
+      
+      // JWT 전략을 사용하므로 token에서 userId 가져오기
+      if (token.userId) {
+        session.user.id = token.userId as string
+      }
+      
       return session
     },
   },

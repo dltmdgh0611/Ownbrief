@@ -16,13 +16,21 @@ interface Playlist {
 
 interface UserSettings {
   selectedPlaylists: string[]
+  interests: string[]
 }
+
+const AVAILABLE_INTERESTS = [
+  'AI', 'Technology', 'Startup', 'Business', 'Marketing',
+  'Design', 'Programming', 'Science', 'Health', 'Finance',
+  'Education', 'Entertainment', 'Sports', 'Music', 'Art'
+]
 
 export default function SettingsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [selectedPlaylists, setSelectedPlaylists] = useState<string[]>([])
+  const [interests, setInterests] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -58,6 +66,7 @@ export default function SettingsPage() {
       
       if (data?.settings) {
         setSelectedPlaylists(data.settings.selectedPlaylists || [])
+        setInterests(data.settings.interests || [])
       }
     } catch (error) {
       console.error('Error fetching user settings:', error)
@@ -68,7 +77,8 @@ export default function SettingsPage() {
     setIsSaving(true)
     try {
       const { data, error } = await apiPost('/api/user/settings', {
-        selectedPlaylists
+        selectedPlaylists,
+        interests
       })
       
       if (data) {
@@ -96,6 +106,16 @@ export default function SettingsPage() {
     )
   }
 
+  const handleInterestToggle = (interest: string) => {
+    if (interests.includes(interest)) {
+      setInterests(interests.filter(i => i !== interest))
+    } else {
+      if (interests.length < 5) {
+        setInterests([...interests, interest])
+      }
+    }
+  }
+
   const handleDeleteAccount = async () => {
     if (!confirm('정말로 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
       return
@@ -118,7 +138,7 @@ export default function SettingsPage() {
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand" />
       </div>
     )
   }
@@ -131,7 +151,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* 헤더 */}
-      <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 sticky top-0 z-50 shadow-lg">
+      <div className="bg-gradient-to-r from-brand to-brand-light text-white p-4 sticky top-0 z-50 shadow-lg">
         <div className="flex items-center space-x-3">
           <Link
             href="/"
@@ -156,13 +176,50 @@ export default function SettingsPage() {
           <div className={`mb-4 p-4 rounded-xl font-medium text-sm ${
             message.includes('실패') || message.includes('오류') 
               ? 'bg-red-50 text-red-700 border-2 border-red-200' 
-              : 'bg-green-50 text-green-700 border-2 border-green-200'
+              : 'bg-primary-50 text-brand border-2 border-primary-200'
           }`}>
             {message}
           </div>
         )}
 
         <div className="space-y-6">
+          {/* 관심사 설정 */}
+          <div className="app-card p-5">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">
+              관심사 설정
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              최대 5개까지 선택할 수 있습니다. ({interests.length}/5 선택됨)
+            </p>
+
+            <div className="flex flex-wrap gap-2">
+              {AVAILABLE_INTERESTS.map((interest) => {
+                const isSelected = interests.includes(interest)
+                return (
+                  <button
+                    key={interest}
+                    onClick={() => handleInterestToggle(interest)}
+                    disabled={!isSelected && interests.length >= 5}
+                    className={`
+                      px-4 py-2.5 rounded-xl font-medium text-sm
+                      transition-all duration-200
+                      ${isSelected
+                        ? 'bg-gradient-to-r from-brand to-brand-light text-white shadow-md scale-105'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }
+                      ${!isSelected && interests.length >= 5
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'active:scale-95'
+                      }
+                    `}
+                  >
+                    {interest}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           {/* 플레이리스트 설정 */}
           <div className="app-card p-5">
             <h2 className="text-lg font-bold text-gray-900 mb-2">
@@ -175,7 +232,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between mb-4 pb-4 border-b">
               <div className="text-sm">
                 <span className="text-gray-600">선택된 플레이리스트</span>
-                <span className="ml-2 font-bold text-emerald-600">{selectedPlaylists.length}개</span>
+                <span className="ml-2 font-bold text-brand">{selectedPlaylists.length}개</span>
               </div>
               
               <button
@@ -194,8 +251,8 @@ export default function SettingsPage() {
 
             {isLoading ? (
               <div className="text-center py-8">
-                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+                <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-brand" />
                 </div>
                 <p className="text-sm text-gray-600">플레이리스트를 가져오는 중...</p>
               </div>
@@ -211,14 +268,14 @@ export default function SettingsPage() {
                   </div>
                 ) : (
                   playlists.map((playlist) => (
-                    <div key={playlist.id} className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200 hover:border-emerald-300 transition-colors">
+                    <div key={playlist.id} className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200 hover:border-brand transition-colors">
                       <label htmlFor={playlist.id} className="flex items-start space-x-3 cursor-pointer">
                         <input
                           type="checkbox"
                           id={playlist.id}
                           checked={selectedPlaylists.includes(playlist.id)}
                           onChange={() => handlePlaylistToggle(playlist.id)}
-                          className="mt-1 h-5 w-5 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                          className="mt-1 h-5 w-5 text-brand focus:ring-brand border-gray-300 rounded"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="font-bold text-gray-900 mb-1">{playlist.title}</div>
@@ -243,7 +300,7 @@ export default function SettingsPage() {
           <button
             onClick={saveSettings}
             disabled={isSaving}
-            className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
+            className="w-full bg-gradient-to-r from-brand to-brand-light hover:from-brand-dark hover:to-brand disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
           >
             {isSaving ? (
               <>

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
+import { createPortal } from 'react-dom'
 import { X, ChevronRight, Play, FileText, Mic, CheckCircle, Loader2 } from 'lucide-react'
 import { apiPost } from '@/backend/lib/api-client'
 
@@ -16,7 +17,7 @@ interface StepByStepModalProps {
   onComplete: (podcastId: string) => void
 }
 
-export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByStepModalProps) {
+const StepByStepModal = memo(function StepByStepModal({ isOpen, onClose, onComplete }: StepByStepModalProps) {
   const [currentStep, setCurrentStep] = useState(0)
   const [videos, setVideos] = useState<VideoInfo[]>([])
   const [script, setScript] = useState('')
@@ -24,12 +25,56 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
   const [podcastId, setPodcastId] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [hasAnimated, setHasAnimated] = useState(false) // 애니메이션 실행 여부 추적
   const [subtitleProgress, setSubtitleProgress] = useState<{
     current: number
     total: number
     currentVideo: string
     completedVideos: string[]
   }>({ current: 0, total: 0, currentVideo: '', completedVideos: [] })
+
+  // 모달이 열릴 때 저장된 상태 복구
+  useEffect(() => {
+    if (isOpen) {
+      const savedState = localStorage.getItem('podcast_generation_state')
+      if (savedState) {
+        try {
+          const state = JSON.parse(savedState)
+          console.log('🔄 팟캐스트 생성 상태 복구:', state)
+          setCurrentStep(state.currentStep || 0)
+          setVideos(state.videos || [])
+          setScript(state.script || '')
+          setAudioUrl(state.audioUrl || '')
+          setPodcastId(state.podcastId || '')
+          setHasAnimated(true) // 이미 열려있던 모달이므로 애니메이션 건너뛰기
+        } catch (e) {
+          console.error('❌ 상태 복구 실패:', e)
+        }
+      } else {
+        // 처음 열리는 모달
+        setHasAnimated(false)
+      }
+    } else {
+      // 모달이 닫힐 때 애니메이션 상태 초기화
+      setHasAnimated(false)
+    }
+  }, [isOpen])
+
+  // 상태가 변경될 때마다 저장
+  useEffect(() => {
+    if (isOpen && (currentStep > 0 || videos.length > 0 || script || audioUrl || podcastId)) {
+      const state = {
+        currentStep,
+        videos,
+        script,
+        audioUrl,
+        podcastId,
+        timestamp: Date.now()
+      }
+      localStorage.setItem('podcast_generation_state', JSON.stringify(state))
+      console.log('💾 팟캐스트 생성 상태 저장:', { currentStep, videosCount: videos.length })
+    }
+  }, [isOpen, currentStep, videos, script, audioUrl, podcastId])
 
   const steps = [
     {
@@ -194,19 +239,28 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
       }
     } else if (currentStep === 4) {
       // 5단계: 완료
+      // 저장된 상태 제거
+      localStorage.removeItem('podcast_generation_state')
+      console.log('🎉 팟캐스트 생성 완료 - 저장된 상태 제거')
       onComplete(podcastId)
       onClose()
     }
   }
 
   const handleClose = () => {
-    setCurrentStep(0)
-    setVideos([])
-    setScript('')
-    setAudioUrl('')
-    setPodcastId('')
-    setError('')
-    onClose()
+    // 사용자가 직접 닫을 때만 상태 초기화
+    if (confirm('팟캐스트 생성을 중단하시겠습니까? 진행 중인 내용이 사라집니다.')) {
+      setCurrentStep(0)
+      setVideos([])
+      setScript('')
+      setAudioUrl('')
+      setPodcastId('')
+      setError('')
+      // 저장된 상태 제거
+      localStorage.removeItem('podcast_generation_state')
+      console.log('❌ 모달 닫기 - 저장된 상태 제거')
+      onClose()
+    }
   }
 
   if (!isOpen) return null
@@ -215,10 +269,10 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
   const IconComponent = currentStepData.icon
 
   return (
-    <div className="fixed inset-0 bg-white z-50 slide-up">
+    <div className={`fixed inset-0 bg-white z-50 ${!hasAnimated ? 'slide-up' : ''}`}>
       <div className="modal-container flex flex-col">
         {/* 헤더 */}
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 flex-shrink-0">
+        <div className="bg-gradient-to-r from-brand to-brand-light text-white p-4 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
@@ -243,7 +297,7 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
               <div key={step.id} className="flex flex-col items-center flex-1">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold mb-1 transition-all ${
                   index <= currentStep 
-                    ? 'bg-white text-emerald-600 scale-110' 
+                    ? 'bg-white text-brand scale-110' 
                     : 'bg-white/20 text-white/60 scale-90'
                 }`}>
                   {index < currentStep ? '✓' : index + 1}
@@ -268,7 +322,7 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
 
           {currentStep === 0 && (
             <div className="text-center py-8">
-              <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
+              <div className="w-20 h-20 bg-gradient-to-br from-brand to-brand-light rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
                 <Play className="h-10 w-10 text-white" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">유튜브 동영상 가져오기</h3>
@@ -278,7 +332,7 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
               <button
                 onClick={handleNext}
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
+                className="w-full bg-gradient-to-r from-brand to-brand-light hover:from-brand-dark hover:to-brand disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
               >
                 {isLoading ? (
                   <>
@@ -302,8 +356,8 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
                 {videos.map((video, index) => (
                   <div key={video.id} className="app-card p-3">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-bold text-emerald-600">{index + 1}</span>
+                      <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-brand">{index + 1}</span>
                       </div>
                       {video.thumbnail && (
                         <img
@@ -315,7 +369,7 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 line-clamp-2">{video.title}</p>
                       </div>
-                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <CheckCircle className="h-5 w-5 text-brand flex-shrink-0" />
                     </div>
                   </div>
                 ))}
@@ -323,7 +377,7 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
 
               <button
                 onClick={handleNext}
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
+                className="w-full bg-gradient-to-r from-brand to-brand-light hover:from-brand-dark hover:to-brand text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
               >
                 <span>다음 단계</span>
                 <ChevronRight className="h-5 w-5" />
@@ -338,23 +392,23 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
               {isLoading ? (
                 <div className="space-y-4">
                   {/* 진행 상황 표시 */}
-                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-5 rounded-xl border-2 border-emerald-100">
+                  <div className="bg-gradient-to-br from-primary-50 to-primary-100 p-5 rounded-xl border-2 border-primary-200">
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-bold text-emerald-900 text-sm">자막 추출 진행중</h4>
-                      <span className="text-xs font-bold text-emerald-700 bg-white px-3 py-1 rounded-full">
+                      <h4 className="font-bold text-brand-dark text-sm">자막 추출 진행중</h4>
+                      <span className="text-xs font-bold text-brand bg-white px-3 py-1 rounded-full">
                         {subtitleProgress.current}/{subtitleProgress.total}
                       </span>
                     </div>
                     
-                    <div className="w-full bg-emerald-200 rounded-full h-3 mb-3">
+                    <div className="w-full bg-primary-200 rounded-full h-3 mb-3">
                       <div 
-                        className="bg-gradient-to-r from-emerald-600 to-teal-600 h-3 rounded-full transition-all duration-500"
+                        className="bg-gradient-to-r from-brand to-brand-light h-3 rounded-full transition-all duration-500"
                         style={{ width: `${(subtitleProgress.current / subtitleProgress.total) * 100}%` }}
                       ></div>
                     </div>
                     
                     {subtitleProgress.currentVideo && (
-                      <p className="text-xs text-emerald-800 font-medium">
+                      <p className="text-xs text-brand-dark font-medium">
                         ⚡ {subtitleProgress.currentVideo}
                       </p>
                     )}
@@ -367,9 +421,9 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
                         <div className="flex items-center space-x-3">
                           <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
                             index < subtitleProgress.current 
-                              ? 'bg-green-500 text-white' 
-                              : index === subtitleProgress.current - 1
-                              ? 'bg-emerald-500 text-white'
+                              ? 'bg-brand text-white' 
+                            : index === subtitleProgress.current - 1
+                              ? 'bg-brand-light text-white'
                               : 'bg-gray-200 text-gray-600'
                           }`}>
                             {index < subtitleProgress.current ? '✓' : index + 1}
@@ -388,7 +442,7 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
+                  <div className="w-20 h-20 bg-gradient-to-br from-brand to-brand-light rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
                     <FileText className="h-10 w-10 text-white" />
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 mb-2">자막 추출 및 스크립트 생성</h3>
@@ -398,7 +452,7 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
                   <button
                     onClick={handleNext}
                     disabled={isLoading}
-                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
+                    className="w-full bg-gradient-to-r from-brand to-brand-light hover:from-brand-dark hover:to-brand disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
                   >
                     <span>자막 추출 시작</span>
                     <ChevronRight className="h-5 w-5" />
@@ -420,7 +474,7 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
               <button
                 onClick={handleNext}
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
+                className="w-full bg-gradient-to-r from-brand to-brand-light hover:from-brand-dark hover:to-brand disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
               >
                 {isLoading ? (
                   <>
@@ -439,8 +493,8 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
 
           {currentStep === 2 && isLoading && !script && (
             <div className="text-center py-8">
-              <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Loader2 className="h-10 w-10 text-emerald-600 animate-spin" />
+              <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Loader2 className="h-10 w-10 text-brand animate-spin" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">스크립트 생성 중...</h3>
               <p className="text-sm text-gray-600 px-4">
@@ -452,8 +506,8 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
 
           {currentStep === 3 && isLoading && (
             <div className="text-center py-8">
-              <div className="w-20 h-20 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Loader2 className="h-10 w-10 text-teal-600 animate-spin" />
+              <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Loader2 className="h-10 w-10 text-brand-light animate-spin" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">음성 생성 중...</h3>
               <p className="text-sm text-gray-600 px-4">
@@ -465,7 +519,7 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
 
           {currentStep === 4 && audioUrl && (
             <div className="text-center py-8">
-              <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
+              <div className="w-20 h-20 bg-gradient-to-br from-brand-light to-brand rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
                 <Mic className="h-10 w-10 text-white" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">🎉 음성 생성 완료!</h3>
@@ -482,7 +536,7 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
 
               <button
                 onClick={handleNext}
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
+                className="w-full bg-gradient-to-r from-brand-light to-brand hover:from-brand hover:to-brand-dark text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
               >
                 <CheckCircle className="h-5 w-5" />
                 <span>완료</span>
@@ -492,7 +546,7 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
 
           {currentStep === 3 && !audioUrl && !isLoading && (
             <div className="text-center py-8">
-              <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
+              <div className="w-20 h-20 bg-gradient-to-br from-brand to-brand-light rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
                 <Mic className="h-10 w-10 text-white" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">음성 생성 준비 완료</h3>
@@ -502,7 +556,7 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
               
               <button
                 onClick={handleNext}
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
+                className="w-full bg-gradient-to-r from-brand to-brand-light hover:from-brand-dark hover:to-brand text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
               >
                 <Mic className="h-5 w-5" />
                 <span>음성 생성하기</span>
@@ -513,4 +567,6 @@ export default function StepByStepModal({ isOpen, onClose, onComplete }: StepByS
       </div>
     </div>
   )
-}
+})
+
+export default StepByStepModal

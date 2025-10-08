@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Play, Loader2, CheckCircle, XCircle, Clock, Mic2, ListMusic } from 'lucide-react'
 import StepByStepModal from './StepByStepModal'
@@ -21,25 +21,43 @@ export default function PodcastGenerator() {
   const [podcasts, setPodcasts] = useState<Podcast[]>([])
   const [showModal, setShowModal] = useState(false)
 
+  // 페이지 로드 시 모달 상태 복구
   useEffect(() => {
+    fetchPodcasts()
+    
+    // localStorage에서 모달 상태 복구
+    const savedModalState = localStorage.getItem('podcast_modal_open')
+    if (savedModalState === 'true') {
+      setShowModal(true)
+      setIsGenerating(true)
+      console.log('🔄 모달 상태 복구: 열림')
+    }
+  }, [])
+
+  const generatePodcast = useCallback(async () => {
+    setIsGenerating(true)
+    setShowModal(true)
+    // 모달 상태 저장
+    localStorage.setItem('podcast_modal_open', 'true')
+    console.log('💾 모달 상태 저장: 열림')
+  }, [])
+
+  const handleModalComplete = useCallback((podcastId: string) => {
+    setShowModal(false)
+    setIsGenerating(false)
+    // 모달 상태 제거
+    localStorage.removeItem('podcast_modal_open')
+    console.log('🗑️ 모달 상태 제거: 완료')
     fetchPodcasts()
   }, [])
 
-  const generatePodcast = async () => {
-    setIsGenerating(true)
-    setShowModal(true)
-  }
-
-  const handleModalComplete = (podcastId: string) => {
+  const handleModalClose = useCallback(() => {
     setShowModal(false)
     setIsGenerating(false)
-    fetchPodcasts()
-  }
-
-  const handleModalClose = () => {
-    setShowModal(false)
-    setIsGenerating(false)
-  }
+    // 모달 상태 제거
+    localStorage.removeItem('podcast_modal_open')
+    console.log('🗑️ 모달 상태 제거: 닫기')
+  }, [])
 
   const fetchPodcasts = async () => {
     try {
@@ -57,7 +75,7 @@ export default function PodcastGenerator() {
     switch (status) {
       case 'completed':
         return (
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-primary-100 text-brand">
             <CheckCircle className="w-3 h-3 mr-1" />
             완료
           </span>
@@ -95,7 +113,7 @@ export default function PodcastGenerator() {
   return (
     <div className="px-4 py-6 space-y-6">
       {/* 생성 버튼 카드 */}
-      <div className="app-card p-6 bg-gradient-to-br from-emerald-600 to-teal-600 text-white fade-in">
+      <div className="app-card p-6 bg-gradient-to-br from-brand to-brand-light text-white fade-in">
         <div className="flex items-center space-x-3 mb-4">
           <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
             <Mic2 className="w-6 h-6" />
@@ -114,7 +132,7 @@ export default function PodcastGenerator() {
         <button
           onClick={generatePodcast}
           disabled={isGenerating}
-          className="w-full bg-white text-emerald-600 px-6 py-4 rounded-xl font-bold transition-all app-button disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+          className="w-full bg-white text-brand px-6 py-4 rounded-xl font-bold transition-all app-button disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
         >
           {isGenerating ? (
             <>

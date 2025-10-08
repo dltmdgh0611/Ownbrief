@@ -38,16 +38,17 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String         @id @default(cuid())
   name          String?
-  email         String?   @unique
+  email         String?        @unique
   emailVerified DateTime?
   image         String?
   accounts      Account[]
   sessions      Session[]
   podcasts      Podcast[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  userSettings  UserSettings?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model VerificationToken {
@@ -73,9 +74,12 @@ model Podcast {
 }
 
 model UserSettings {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  selectedPlaylists String[] // JSON 배열로 저장
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  selectedPlaylists    String[] // 선택한 유튜브 플레이리스트 ID 배열
+  interests            String[] // 관심 키워드 배열
+  onboardingCompleted  Boolean  @default(false) // 온보딩 완료 여부
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
