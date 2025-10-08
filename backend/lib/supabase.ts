@@ -36,9 +36,10 @@ export async function uploadAudioToStorage(
   try {
     const supabase = getSupabaseClient()
     
-    console.log('🔍 Supabase 클라이언트 정보:', {
-      url: supabase.supabaseUrl,
-      hasKey: !!supabase.supabaseKey
+    console.log('🔍 Supabase 업로드 시작:', {
+      fileName,
+      mimeType,
+      bucket: 'podcasts'
     })
     
     // Upload to 'podcasts' bucket
