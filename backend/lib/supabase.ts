@@ -52,12 +52,8 @@ export async function uploadAudioToStorage(
       })
 
     if (error) {
-      console.error('❌ Supabase Storage upload error 상세:', {
-        message: error.message,
-        statusCode: error.statusCode,
-        error: error.error,
-        name: error.name
-      })
+      console.error('❌ Supabase Storage upload error:', error.message)
+      console.error('Error details:', JSON.stringify(error))
       throw error
     }
 
