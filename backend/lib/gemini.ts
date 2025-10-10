@@ -34,6 +34,10 @@ export async function generatePodcastScript(transcriptText: string): Promise<str
   console.log(`📝 자막 텍스트 길이: ${transcriptText.length}자`)
   console.log(`📝 자막 텍스트 미리보기: ${transcriptText.substring(0, 200)}...`)
   
+  if (!genAI) {
+    throw new Error('Gemini API is not available. Please check your GEMINI_API_KEY.')
+  }
+  
   const MAX_RETRIES = 3
   const RETRY_DELAY = 5000 // 5초
   
@@ -42,14 +46,14 @@ export async function generatePodcastScript(transcriptText: string): Promise<str
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
       
       const prompt = `
-다음은 유튜브 동영상들의 자막 텍스트입니다. 이 내용을 바탕으로 2500자 이내의 분량 팟캐스트 스크립트를 작성해주세요.
+다음은 유튜브 동영상들의 자막 텍스트입니다. 이 내용을 바탕으로 1500자 이내의 분량 팟캐스트 스크립트를 작성해주세요.
 
 요구사항:
-1. 자연스럽고 대화체로 작성 (한글 기준 2500자 이내 엄수)
+1. 자연스럽고 대화체로 작성 (한글 기준 1500자 이내 엄수)
 2. 흥미로운 도입부와 마무리 포함 (노래 X)
 3. 주요 내용을 요약하고 핵심 포인트 강조 
 4. 듣기 편한 구조로 구성
-5. **정확히 2500자 정도의 분량으로 작성** (한글 기준 2500자 이내 공백 포함)
+5. **정확히 1500자 정도의 분량으로 작성** (한글 기준 1500자 이내 공백 포함)
 6. 2명의 화자 대화 형태로 구성 (호스트와 게스트)
 7. 호스트와 게스트가 번갈아가며 자연스럽게 대화. 호스트는 주체, 게스트는 주제 소개.
 
@@ -171,6 +175,10 @@ export async function generateMultiSpeakerSpeech(script: string): Promise<AudioR
   if (script.length > 32000) {
     console.warn('⚠️ 스크립트가 너무 깁니다. 처음 32000자만 사용합니다.')
     script = script.substring(0, 32000)
+  }
+  
+  if (!genAI) {
+    throw new Error('Gemini API is not available. Please check your GEMINI_API_KEY.')
   }
   
   const MAX_RETRIES = 3
