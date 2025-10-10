@@ -18,7 +18,7 @@ export async function getOnboardingStatus(req: NextRequest) {
       );
     }
 
-    const status = await onboardingService.checkOnboardingStatus(session.user.id);
+    const status = await onboardingService.checkOnboardingStatus(session.user.email);
     
     return NextResponse.json(status);
   } catch (error) {
@@ -49,7 +49,7 @@ export async function completeOnboarding(req: NextRequest) {
     const { interests, selectedPlaylists } = body;
 
     const settings = await onboardingService.completeOnboarding(
-      session.user.id,
+      session.user.email,
       { interests, selectedPlaylists }
     );
 
@@ -85,7 +85,7 @@ export async function updateInterests(req: NextRequest) {
     const { interests } = body;
 
     const settings = await onboardingService.updateInterests(
-      session.user.id,
+      session.user.email,
       interests
     );
 
