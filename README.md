@@ -206,10 +206,27 @@ yarn db:reset
 ## 📚 주요 문서
 
 - [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) - 프로젝트 구조 상세 설명
+- [GEMINI_QUOTA_FIX_STEP_BY_STEP.md](./GEMINI_QUOTA_FIX_STEP_BY_STEP.md) - 🔥 Gemini 429 에러 해결 (스크린샷 가이드)
+- [GEMINI_429_QUOTA_FIX.md](./GEMINI_429_QUOTA_FIX.md) - Gemini 할당량 초과 상세 가이드
+- [GEMINI_API_SETUP.md](./GEMINI_API_SETUP.md) - Gemini API 설정 가이드
 - [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) - Supabase 설정 가이드
 - [VERCEL_DEPLOY.md](./VERCEL_DEPLOY.md) - Vercel 배포 가이드
 
 ## 🐛 문제 해결
+
+### Gemini 429 할당량 초과 에러 🔥
+**"429 Too Many Requests" 에러 발생 시:**
+
+**즉시 해결 방법 (1분 소요):**
+1. https://aistudio.google.com/app/apikey 접속
+2. **"Create API key in new project"** 클릭
+3. 새 API 키 복사
+4. `.env.local` 파일에 붙여넣기
+5. `yarn dev` 재시작
+
+**자세한 해결 방법:**
+- 스크린샷 단위 가이드: [GEMINI_QUOTA_FIX_STEP_BY_STEP.md](./GEMINI_QUOTA_FIX_STEP_BY_STEP.md)
+- 상세 설명: [GEMINI_429_QUOTA_FIX.md](./GEMINI_429_QUOTA_FIX.md)
 
 ### 세션 만료 오류
 - 자동 로그아웃 처리가 구현되어 있습니다

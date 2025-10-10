@@ -3,6 +3,8 @@ import { prisma } from '../lib/prisma';
 export interface OnboardingData {
   interests: string[];
   selectedPlaylists: string[];
+  deliveryTimeHour?: number;
+  deliveryTimeMinute?: number;
 }
 
 /**
@@ -61,10 +63,10 @@ export async function completeOnboarding(
   userEmail: string,
   data: OnboardingData
 ) {
-  const { interests, selectedPlaylists } = data;
+  const { interests, selectedPlaylists, deliveryTimeHour = 8, deliveryTimeMinute = 0 } = data;
 
   console.log('💾 온보딩 완료 처리 시작 - userEmail:', userEmail);
-  console.log('📋 데이터:', { interests, selectedPlaylists });
+  console.log('📋 데이터:', { interests, selectedPlaylists, deliveryTimeHour, deliveryTimeMinute });
 
   // 먼저 사용자를 찾습니다
   const user = await prisma.user.findUnique({
@@ -92,11 +94,16 @@ export async function completeOnboarding(
       interests,
       selectedPlaylists,
       onboardingCompleted: true,
+      deliveryTimeHour,
+      deliveryTimeMinute,
+      credits: 15,
     },
     update: {
       interests,
       selectedPlaylists,
       onboardingCompleted: true,
+      deliveryTimeHour,
+      deliveryTimeMinute,
     },
   });
 

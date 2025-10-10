@@ -1,0 +1,9 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/auto-generate-podcasts",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
+

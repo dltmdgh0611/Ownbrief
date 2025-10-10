@@ -1,0 +1,217 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/backend/lib/auth'
+import { prisma } from '@/backend/lib/prisma'
+import { getYouTubeVideosFromPlaylists, getVideoDetails } from '@/backend/lib/youtube'
+import { getVideoTranscript, combineTranscripts } from '@/backend/lib/subtitle'
+import { generatePodcastScript, generateMultiSpeakerSpeech } from '@/backend/lib/gemini'
+import { uploadAudioToStorage } from '@/backend/lib/supabase'
+
+export const maxDuration = 300
+
+export async function POST(request: NextRequest) {
+  const logs: string[] = []
+  
+  const addLog = (message: string) => {
+    console.log(message)
+    logs.push(`[${new Date().toLocaleTimeString()}] ${message}`)
+  }
+
+  try {
+    addLog('🚀 개발 모드: 자동 팟캐스트 생성 시작...')
+    
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized', logs }, { status: 401 })
+    }
+
+    const accessToken = (session as any)?.accessToken
+    
+    if (!accessToken) {
+      return NextResponse.json({ error: 'No access token', logs }, { status: 401 })
+    }
+
+    addLog(`👤 사용자: ${session.user.email}`)
+
+    // 사용자 정보 가져오기
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      include: { userSettings: true, accounts: true }
+    })
+
+    if (!user) {
+      addLog('❌ 사용자를 찾을 수 없습니다')
+      return NextResponse.json({ error: '사용자를 찾을 수 없습니다', logs }, { status: 404 })
+    }
+
+    addLog(`✅ 사용자 발견: ${user.id}`)
+
+    // 크레딧 확인
+    if (!user.userSettings || user.userSettings.credits <= 0) {
+      addLog(`⚠️ 크레딧 부족 (${user.userSettings?.credits || 0}개)`)
+      return NextResponse.json({ 
+        error: 'Insufficient credits',
+        credits: user.userSettings?.credits || 0,
+        logs 
+      }, { status: 400 })
+    }
+
+    addLog(`💰 현재 크레딧: ${user.userSettings.credits}개`)
+
+    const selectedPlaylists = user.userSettings.selectedPlaylists || []
+
+    if (selectedPlaylists.length === 0) {
+      addLog('⚠️ 선택된 플레이리스트가 없습니다')
+      return NextResponse.json({ error: 'No playlists selected', logs }, { status: 400 })
+    }
+
+    addLog(`📋 선택된 플레이리스트: ${selectedPlaylists.length}개`)
+
+    // 팟캐스트 생성 시작
+    addLog('🎬 유튜브 영상 가져오는 중...')
+    const playlistVideos = await getYouTubeVideosFromPlaylists(accessToken, selectedPlaylists)
+
+    if (!playlistVideos || playlistVideos.length === 0) {
+      addLog('⚠️ 플레이리스트에 영상이 없습니다')
+      return NextResponse.json({ error: 'No videos found', logs }, { status: 404 })
+    }
+
+    // 최신 5개 동영상
+    const videoIds = playlistVideos
+      .slice(0, 5)
+      .map((video: any) => video.snippet?.resourceId?.videoId)
+      .filter(Boolean)
+
+    addLog(`📹 ${videoIds.length}개 영상 선택됨`)
+
+    const videoDetails = await getVideoDetails(videoIds, accessToken)
+    addLog('✅ 영상 상세 정보 가져오기 완료')
+
+    // 자막 추출
+    addLog('📝 자막 추출 시작...')
+    const transcripts = []
+    for (let i = 0; i < videoIds.length; i++) {
+      const videoId = videoIds[i]
+      addLog(`  └ 영상 ${i + 1}/${videoIds.length}: ${videoId}`)
+      try {
+        const transcript = await getVideoTranscript(videoId!)
+        transcripts.push(transcript)
+        addLog(`    ✅ ${transcript.length}개 자막 세그먼트 추출`)
+        await new Promise((resolve) => setTimeout(resolve, 2000))
+      } catch (error: any) {
+        addLog(`    ❌ 자막 추출 실패: ${error.message}`)
+        transcripts.push([])
+      }
+    }
+
+    const combinedTranscript = combineTranscripts(transcripts.filter((t: any) => t.length > 0))
+
+    if (!combinedTranscript || combinedTranscript.trim().length === 0) {
+      addLog('⚠️ 추출된 자막이 없습니다')
+      return NextResponse.json({ error: 'No subtitles extracted', logs }, { status: 400 })
+    }
+
+    addLog(`✅ 총 ${combinedTranscript.length}자 자막 추출 완료`)
+
+    // 스크립트 생성
+    addLog('✍️ AI 스크립트 생성 중...')
+    const script = await generatePodcastScript(combinedTranscript)
+    addLog(`✅ ${script.length}자 스크립트 생성 완료`)
+
+    // 공개 시간: 현재 시간 + 1분
+    const publishedAt = new Date(Date.now() + 60 * 1000)
+    addLog(`⏰ 공개 예정 시간: ${publishedAt.toLocaleString('ko-KR')}`)
+
+    // 팟캐스트 레코드 생성
+    addLog('💾 데이터베이스에 저장 중...')
+    const podcast = await prisma.podcast.create({
+      data: {
+        title: `AI Cast - ${new Date().toLocaleDateString('ko-KR')}`,
+        description: `Podcast generated from ${videoIds.length} videos`,
+        script: script,
+        userId: user.id,
+        status: 'processing',
+        isAutoGenerated: true,
+        publishedAt: publishedAt,
+      },
+    })
+
+    addLog(`✅ 팟캐스트 생성: ${podcast.id}`)
+
+    // 음성 생성
+    addLog('🎤 AI 음성 생성 중 (시간이 소요됩니다)...')
+    const audioResult = await generateMultiSpeakerSpeech(script)
+    addLog(`✅ 음성 생성 완료 (${audioResult.buffer.length} bytes)`)
+
+    // 파일 확장자 결정
+    let fileExtension = 'wav'
+    if (audioResult.mimeType.includes('mpeg') || audioResult.mimeType.includes('mp3')) {
+      fileExtension = 'mp3'
+    } else if (audioResult.mimeType.includes('wav')) {
+      fileExtension = 'wav'
+    } else if (audioResult.mimeType.includes('ogg')) {
+      fileExtension = 'ogg'
+    }
+
+    const audioFileName = `podcast-${podcast.id}.${fileExtension}`
+    addLog(`📤 Supabase Storage에 업로드 중: ${audioFileName}`)
+
+    // Supabase Storage에 업로드
+    const publicUrl = await uploadAudioToStorage(audioResult.buffer, audioFileName, audioResult.mimeType)
+    addLog(`✅ 업로드 완료: ${publicUrl}`)
+
+    // Duration 계산
+    let duration = 0
+    if (fileExtension === 'wav' && audioResult.buffer.length > 44) {
+      const sampleRate = audioResult.buffer.readUInt32LE(24)
+      const byteRate = audioResult.buffer.readUInt32LE(28)
+      const dataSize = audioResult.buffer.readUInt32LE(40)
+      duration = Math.floor(dataSize / byteRate)
+      addLog(`⏱️ 팟캐스트 길이: ${Math.floor(duration / 60)}분 ${duration % 60}초`)
+    }
+
+    // 팟캐스트 업데이트
+    addLog('🔄 팟캐스트 상태 업데이트 중...')
+    await prisma.podcast.update({
+      where: { id: podcast.id },
+      data: {
+        status: 'completed',
+        audioUrl: publicUrl,
+        duration,
+      },
+    })
+
+    // 크레딧 차감
+    addLog('💳 크레딧 차감 중...')
+    await prisma.userSettings.update({
+      where: { userId: user.id },
+      data: {
+        credits: user.userSettings.credits - 1,
+      },
+    })
+
+    const remainingCredits = user.userSettings.credits - 1
+    addLog(`✅ 크레딧 차감 완료. 남은 크레딧: ${remainingCredits}개`)
+
+    addLog('🎉 팟캐스트 자동 생성 완료!')
+    addLog(`📍 팟캐스트 ID: ${podcast.id}`)
+    addLog(`🕐 공개까지 남은 시간: 약 1분`)
+
+    return NextResponse.json({
+      success: true,
+      podcastId: podcast.id,
+      publishedAt: publishedAt.toISOString(),
+      remainingCredits,
+      logs,
+    })
+  } catch (error: any) {
+    addLog(`❌ 오류 발생: ${error.message}`)
+    console.error('Test auto-generate error:', error)
+    return NextResponse.json({ 
+      error: error.message,
+      logs 
+    }, { status: 500 })
+  }
+}
+

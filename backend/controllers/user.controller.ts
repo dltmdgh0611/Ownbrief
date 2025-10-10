@@ -23,7 +23,9 @@ export async function getUserSettings() {
 
     const settings = {
       selectedPlaylists: userSettings?.selectedPlaylists || [],
-      interests: userSettings?.interests || []
+      interests: userSettings?.interests || [],
+      deliveryTimeHour: userSettings?.deliveryTimeHour ?? 8,
+      deliveryTimeMinute: userSettings?.deliveryTimeMinute ?? 0
     }
 
     console.log('✅ 사용자 설정 가져오기 완료:', settings)
@@ -42,7 +44,12 @@ export async function getUserSettings() {
 /**
  * 사용자 설정 저장
  */
-export async function saveUserSettings(selectedPlaylists: string[], interests?: string[]) {
+export async function saveUserSettings(
+  selectedPlaylists: string[], 
+  interests?: string[],
+  deliveryTimeHour?: number,
+  deliveryTimeMinute?: number
+) {
   try {
     const session = await getServerSession(authOptions)
     
@@ -56,18 +63,24 @@ export async function saveUserSettings(selectedPlaylists: string[], interests?: 
     console.log('💾 사용자 설정 저장:', {
       userEmail: session.user.email,
       selectedPlaylists,
-      interests
+      interests,
+      deliveryTimeHour,
+      deliveryTimeMinute
     })
 
     const userSettings = await UserService.saveUserSettings(
       session.user.email,
       selectedPlaylists,
-      interests
+      interests,
+      deliveryTimeHour,
+      deliveryTimeMinute
     )
 
     const settings = {
       selectedPlaylists: userSettings.selectedPlaylists,
-      interests: userSettings.interests || []
+      interests: userSettings.interests || [],
+      deliveryTimeHour: userSettings.deliveryTimeHour ?? 8,
+      deliveryTimeMinute: userSettings.deliveryTimeMinute ?? 0
     }
 
     console.log('✅ 사용자 설정 저장 완료:', settings)

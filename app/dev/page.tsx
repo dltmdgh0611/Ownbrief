@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Activity, CheckCircle, XCircle, AlertCircle, RefreshCw, Home, Database, Youtube, Mic2, Brain, Play, Loader2 } from 'lucide-react'
+import { Activity, CheckCircle, XCircle, AlertCircle, RefreshCw, Home, Database, Youtube, Mic2, Brain, Play, Loader2, Zap } from 'lucide-react'
 
 interface HealthStatus {
   service: string
@@ -45,6 +45,8 @@ export default function DevModePage() {
   const [testPodcastUrl, setTestPodcastUrl] = useState('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3')
   const [testPodcastTitle, setTestPodcastTitle] = useState('테스트 팟캐스트')
   const [testResults, setTestResults] = useState<{[key: string]: TestResult}>({})
+  const [isTestingAutoGenerate, setIsTestingAutoGenerate] = useState(false)
+  const [autoGenerateLogs, setAutoGenerateLogs] = useState<string[]>([])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -272,6 +274,43 @@ export default function DevModePage() {
     }
   }
 
+  const testAutoGenerate = async () => {
+    setIsTestingAutoGenerate(true)
+    setAutoGenerateLogs([])
+    addLog('info', '🚀 자동 팟캐스트 생성 테스트 시작 (1분 후 공개 예정)')
+    
+    try {
+      const response = await fetch('/api/dev/test-auto-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok) {
+        setTestResults(prev => ({ ...prev, autoGenerate: { success: true, data } }))
+        setAutoGenerateLogs(data.logs || [])
+        addLog('success', `✅ 자동 생성 완료! 팟캐스트 ID: ${data.podcastId}`)
+        addLog('success', `⏰ 공개 시간: ${new Date(data.publishedAt).toLocaleString('ko-KR')}`)
+        addLog('success', `💰 남은 크레딧: ${data.remainingCredits}개`)
+        
+        // 페이지 새로고침하여 팟캐스트 목록에 표시
+        setTimeout(() => {
+          router.push('/')
+        }, 2000)
+      } else {
+        setTestResults(prev => ({ ...prev, autoGenerate: { success: false, error: data.error } }))
+        setAutoGenerateLogs(data.logs || [])
+        addLog('error', `❌ 자동 생성 실패: ${data.error}`)
+      }
+    } catch (error: any) {
+      setTestResults(prev => ({ ...prev, autoGenerate: { success: false, error: error.message } }))
+      addLog('error', `❌ 자동 생성 오류: ${error.message}`)
+    } finally {
+      setIsTestingAutoGenerate(false)
+    }
+  }
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -411,6 +450,74 @@ export default function DevModePage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Auto-Generate Test */}
+        <div className="mt-6 bg-gradient-to-br from-purple-900 to-blue-900 rounded-lg shadow-lg p-6 border-2 border-purple-500">
+          <h2 className="text-2xl font-bold mb-4 flex items-center space-x-2">
+            <Zap className="h-8 w-8 text-yellow-400" />
+            <span>🚀 자동 팟캐스트 생성 테스트</span>
+          </h2>
+          
+          <p className="text-gray-200 mb-4">
+            실제 자동 생성 프로세스를 테스트합니다. 유튜브 영상 → 자막 추출 → 스크립트 생성 → 음성 생성까지 모든 과정이 실행됩니다. 
+            생성된 팟캐스트는 <strong className="text-yellow-300">1분 후 공개</strong>되도록 설정됩니다.
+          </p>
+          
+          <button
+            onClick={testAutoGenerate}
+            disabled={isTestingAutoGenerate}
+            className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 disabled:from-gray-600 disabled:to-gray-700 text-white px-6 py-4 rounded-lg font-bold text-lg flex items-center justify-center space-x-3 shadow-xl transform transition-all hover:scale-105 disabled:scale-100"
+          >
+            {isTestingAutoGenerate ? (
+              <>
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span>자동 생성 중... (몇 분 소요됩니다)</span>
+              </>
+            ) : (
+              <>
+                <Zap className="h-6 w-6" />
+                <span>자동 팟캐스트 생성 시작</span>
+              </>
+            )}
+          </button>
+          
+          {/* Auto-Generate Logs */}
+          {autoGenerateLogs.length > 0 && (
+            <div className="mt-4 bg-black/50 rounded-lg p-4 max-h-96 overflow-y-auto">
+              <h3 className="text-sm font-bold text-yellow-400 mb-2">실시간 로그:</h3>
+              <div className="space-y-1 font-mono text-xs">
+                {autoGenerateLogs.map((log, index) => (
+                  <div key={index} className="text-gray-300">
+                    {log}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {testResults.autoGenerate && (
+            <div className={`mt-4 p-4 rounded-lg ${testResults.autoGenerate.success ? 'bg-green-900/50 text-green-200 border-2 border-green-500' : 'bg-red-900/50 text-red-200 border-2 border-red-500'}`}>
+              {testResults.autoGenerate.success ? (
+                <div>
+                  <div className="font-bold text-xl mb-2">✅ 자동 생성 성공!</div>
+                  <div className="space-y-1">
+                    <div>📍 팟캐스트 ID: <code className="bg-black/30 px-2 py-1 rounded">{testResults.autoGenerate.data.podcastId}</code></div>
+                    <div>⏰ 공개 시간: {new Date(testResults.autoGenerate.data.publishedAt).toLocaleString('ko-KR')}</div>
+                    <div>💰 남은 크레딧: {testResults.autoGenerate.data.remainingCredits}개</div>
+                    <div className="mt-3 p-3 bg-yellow-500/20 rounded border border-yellow-500">
+                      <strong>🎉 2초 후 홈 페이지로 이동하여 팟캐스트를 확인하세요!</strong>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="font-bold text-xl mb-2">❌ 자동 생성 실패</div>
+                  <div className="text-sm">{testResults.autoGenerate.error}</div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Test Tools */}

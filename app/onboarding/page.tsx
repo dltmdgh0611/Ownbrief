@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, ChevronRight, Check, Play, List, Mic2 } from 'lucide-react';
+import { Sparkles, ChevronRight, Check, Play, List, Mic2, Clock } from 'lucide-react';
 
 const AVAILABLE_INTERESTS = [
   'AI', 'Technology', 'Startup', 'Business', 'Marketing',
@@ -24,6 +24,8 @@ export default function OnboardingPage() {
   const [playlistSelectionType, setPlaylistSelectionType] = useState<'existing' | 'new' | null>(null);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [creatingPlaylist, setCreatingPlaylist] = useState(false);
+  const [deliveryTimeHour, setDeliveryTimeHour] = useState(8);
+  const [deliveryTimeMinute, setDeliveryTimeMinute] = useState(0);
 
   // 세션이 없으면 홈으로
   useEffect(() => {
@@ -182,6 +184,8 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           interests,
           selectedPlaylists,
+          deliveryTimeHour,
+          deliveryTimeMinute,
         }),
       });
 
@@ -687,7 +691,7 @@ export default function OnboardingPage() {
             </div>
 
             {/* 플레이리스트 */}
-            <div>
+            <div className="mb-6">
               <div className="flex items-center space-x-2 mb-3">
                 <List className="w-5 h-5 text-brand" />
                 <span className="font-medium text-gray-900">플레이리스트</span>
@@ -712,6 +716,40 @@ export default function OnboardingPage() {
                   );
                 })}
               </div>
+            </div>
+
+            {/* 팟캐스트 배달 시간 */}
+            <div>
+              <div className="flex items-center space-x-2 mb-3">
+                <Clock className="w-5 h-5 text-brand" />
+                <span className="font-medium text-gray-900">매일 팟캐스트 받을 시간</span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <select
+                  value={deliveryTimeHour}
+                  onChange={(e) => setDeliveryTimeHour(Number(e.target.value))}
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-transparent"
+                >
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <option key={i} value={i}>
+                      {i}시
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={deliveryTimeMinute}
+                  onChange={(e) => setDeliveryTimeMinute(Number(e.target.value))}
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-transparent"
+                >
+                  <option value={0}>0분</option>
+                  <option value={15}>15분</option>
+                  <option value={30}>30분</option>
+                  <option value={45}>45분</option>
+                </select>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                💡 설정한 시간에 맞춰 자동으로 팟캐스트가 준비됩니다
+              </p>
             </div>
           </div>
 

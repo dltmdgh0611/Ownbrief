@@ -1,19 +1,47 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 import { writeFile, unlink } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+// API 키 검증
+if (!process.env.GEMINI_API_KEY && !process.env.OPENAI_API_KEY) {
+  console.error('❌ GEMINI_API_KEY 또는 OPENAI_API_KEY 중 하나는 필수입니다!')
+  console.error('📝 .env.local 파일에 API 키를 추가하세요.')
+  throw new Error('GEMINI_API_KEY 또는 OPENAI_API_KEY 환경 변수가 필요합니다.')
+}
+
+// Gemini API 클라이언트
+const genAI = process.env.GEMINI_API_KEY 
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null
+
+// OpenAI API 클라이언트 (폴백용)
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null
+
+// 사용 가능한 API 확인
+if (genAI) {
+  console.log('✅ Gemini API 사용 가능')
+}
+if (openai) {
+  console.log('✅ OpenAI API 사용 가능 (폴백)')
+}
 
 export async function generatePodcastScript(transcriptText: string): Promise<string> {
   console.log('🤖 Gemini 스크립트 생성 시작...')
   console.log(`📝 자막 텍스트 길이: ${transcriptText.length}자`)
   console.log(`📝 자막 텍스트 미리보기: ${transcriptText.substring(0, 200)}...`)
   
-  try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
-    
-    const prompt = `
+  const MAX_RETRIES = 3
+  const RETRY_DELAY = 5000 // 5초
+  
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+      
+      const prompt = `
 다음은 유튜브 동영상들의 자막 텍스트입니다. 이 내용을 바탕으로 2500자 이내의 분량 팟캐스트 스크립트를 작성해주세요.
 
 요구사항:
@@ -31,45 +59,62 @@ ${transcriptText}
 팟캐스트 스크립트 (호스트와 게스트의 대화 형태, 2500자 분량):
 `
 
-    console.log('📤 Gemini API 요청 중...')
-    const result = await model.generateContent({
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: prompt
-            }
-          ]
-        }
-      ]
-    })
-    const response = await result.response
-    const script = response.text()
+      console.log(`📤 Gemini API 요청 중... (시도 ${attempt}/${MAX_RETRIES})`)
+      const result = await model.generateContent({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: prompt
+              }
+            ]
+          }
+        ]
+      })
+      const response = await result.response
+      const script = response.text()
 
-    console.log(`✅ 스크립트 생성 완료: ${script.length}자`)
-    console.log(`📊 목표 길이: 2500자 | 실제 길이: ${script.length}자 | 차이: ${script.length - 2500}자`)
-    
-    if (script.length < 2000) {
-      console.warn('⚠️ 스크립트가 너무 짧습니다 (2000자 미만)')
-    } else if (script.length > 3000) {
-      console.warn('⚠️ 스크립트가 너무 깁니다 (3000자 초과)')
-    } else {
-      console.log('✅ 스크립트 길이가 적절합니다 (2000-3000자)')
+      console.log(`✅ 스크립트 생성 완료: ${script.length}자`)
+      console.log(`📊 목표 길이: 2500자 | 실제 길이: ${script.length}자 | 차이: ${script.length - 2500}자`)
+      
+      if (script.length < 2000) {
+        console.warn('⚠️ 스크립트가 너무 짧습니다 (2000자 미만)')
+      } else if (script.length > 3000) {
+        console.warn('⚠️ 스크립트가 너무 깁니다 (3000자 초과)')
+      } else {
+        console.log('✅ 스크립트 길이가 적절합니다 (2000-3000자)')
+      }
+      
+      console.log(`📝 스크립트 미리보기: ${script.substring(0, 200)}...`)
+
+      return script
+      
+    } catch (error: any) {
+      // 429 에러 (할당량 초과) 체크
+      if (error.status === 429 && attempt < MAX_RETRIES) {
+        console.warn(`⚠️ 할당량 초과 (시도 ${attempt}/${MAX_RETRIES}). ${RETRY_DELAY/1000}초 후 재시도...`)
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
+        continue
+      }
+      
+      // 다른 에러거나 최대 재시도 횟수 초과
+      console.error('❌ Gemini API 상세 오류:', {
+        message: error.message,
+        code: error.code,
+        status: error.status,
+        response: error.response?.data
+      })
+      
+      if (error.status === 429) {
+        throw new Error('할당량을 초과했습니다. 잠시 후 다시 시도하거나 유료 플랜으로 업그레이드하세요.')
+      }
+      
+      throw new Error('팟캐스트 스크립트 생성에 실패했습니다.')
     }
-    
-    console.log(`📝 스크립트 미리보기: ${script.substring(0, 200)}...`)
-
-    return script
-  } catch (error: any) {
-    console.error('❌ Gemini API 상세 오류:', {
-      message: error.message,
-      code: error.code,
-      status: error.status,
-      response: error.response?.data
-    })
-    throw new Error('팟캐스트 스크립트 생성에 실패했습니다.')
   }
+  
+  throw new Error('최대 재시도 횟수를 초과했습니다.')
 }
 
 export interface AudioResult {
@@ -128,7 +173,12 @@ export async function generateMultiSpeakerSpeech(script: string): Promise<AudioR
     script = script.substring(0, 32000)
   }
   
-  try {
+  const MAX_RETRIES = 3
+  const RETRY_DELAY = 5000 // 5초
+  
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      console.log(`🎤 TTS API 요청 중... (시도 ${attempt}/${MAX_RETRIES})`)
     // Gemini 2.5 Flash Preview TTS 모델 사용
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-tts" })
     
@@ -209,25 +259,41 @@ export async function generateMultiSpeakerSpeech(script: string): Promise<AudioR
       }
     }
     
-    return {
-      buffer: audioBuffer,
-      mimeType
+      return {
+        buffer: audioBuffer,
+        mimeType
+      }
+      
+    } catch (error: any) {
+      // 429 에러 (할당량 초과) 체크
+      if (error.status === 429 && attempt < MAX_RETRIES) {
+        console.warn(`⚠️ TTS 할당량 초과 (시도 ${attempt}/${MAX_RETRIES}). ${RETRY_DELAY/1000}초 후 재시도...`)
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
+        continue
+      }
+      
+      // 다른 에러거나 최대 재시도 횟수 초과
+      console.error('❌ Gemini 네이티브 TTS 음성 생성 오류:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        code: error.code,
+        status: error.status,
+        response: error.response?.data
+      })
+      
+      // 스크립트 내용도 로깅
+      console.error('📝 문제가 된 스크립트:', script.substring(0, 500) + '...')
+      
+      if (error.status === 429) {
+        throw new Error('TTS 할당량을 초과했습니다. 잠시 후 다시 시도하거나 유료 플랜으로 업그레이드하세요.')
+      }
+      
+      throw new Error('Gemini 네이티브 TTS 음성 생성에 실패했습니다.')
     }
-  } catch (error: any) {
-    console.error('❌ Gemini 네이티브 TTS 음성 생성 오류:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-      code: error.code,
-      status: error.status,
-      response: error.response?.data
-    })
-    
-    // 스크립트 내용도 로깅
-    console.error('📝 문제가 된 스크립트:', script.substring(0, 500) + '...')
-    
-    throw new Error('Gemini 네이티브 TTS 음성 생성에 실패했습니다.')
   }
+  
+  throw new Error('TTS 최대 재시도 횟수를 초과했습니다.')
 }
 
 // Gemini 네이티브 TTS는 다중 화자를 자동으로 처리하므로 별도의 파싱이나 결합이 필요 없습니다.

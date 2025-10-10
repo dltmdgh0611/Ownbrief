@@ -17,6 +17,8 @@ interface Playlist {
 interface UserSettings {
   selectedPlaylists: string[]
   interests: string[]
+  deliveryTimeHour: number
+  deliveryTimeMinute: number
 }
 
 const AVAILABLE_INTERESTS = [
@@ -31,6 +33,8 @@ export default function SettingsPage() {
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [selectedPlaylists, setSelectedPlaylists] = useState<string[]>([])
   const [interests, setInterests] = useState<string[]>([])
+  const [deliveryTimeHour, setDeliveryTimeHour] = useState(8)
+  const [deliveryTimeMinute, setDeliveryTimeMinute] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -67,6 +71,8 @@ export default function SettingsPage() {
       if (data?.settings) {
         setSelectedPlaylists(data.settings.selectedPlaylists || [])
         setInterests(data.settings.interests || [])
+        setDeliveryTimeHour(data.settings.deliveryTimeHour ?? 8)
+        setDeliveryTimeMinute(data.settings.deliveryTimeMinute ?? 0)
       }
     } catch (error) {
       console.error('Error fetching user settings:', error)
@@ -78,7 +84,9 @@ export default function SettingsPage() {
     try {
       const { data, error } = await apiPost('/api/user/settings', {
         selectedPlaylists,
-        interests
+        interests,
+        deliveryTimeHour,
+        deliveryTimeMinute
       })
       
       if (data) {
@@ -294,6 +302,46 @@ export default function SettingsPage() {
                 )}
               </div>
             )}
+          </div>
+
+          {/* 팟캐스트 배달 시간 설정 */}
+          <div className="app-card p-5">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">
+              팟캐스트 배달 시간
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              매일 자동으로 팟캐스트를 받을 시간을 설정하세요.
+            </p>
+            
+            <div className="flex items-center space-x-3">
+              <select
+                value={deliveryTimeHour}
+                onChange={(e) => setDeliveryTimeHour(Number(e.target.value))}
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-transparent font-medium"
+              >
+                {Array.from({ length: 24 }, (_, i) => (
+                  <option key={i} value={i}>
+                    {i}시
+                  </option>
+                ))}
+              </select>
+              <select
+                value={deliveryTimeMinute}
+                onChange={(e) => setDeliveryTimeMinute(Number(e.target.value))}
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-transparent font-medium"
+              >
+                <option value={0}>0분</option>
+                <option value={15}>15분</option>
+                <option value={30}>30분</option>
+                <option value={45}>45분</option>
+              </select>
+            </div>
+            
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs text-blue-700">
+                💡 설정한 시간 1시간 전에 자동으로 팟캐스트가 생성되며, 설정한 시간에 공개됩니다.
+              </p>
+            </div>
           </div>
 
           {/* 저장 버튼 */}

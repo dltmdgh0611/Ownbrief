@@ -10,6 +10,6 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { selectedPlaylists, interests } = await request.json()
-  return saveUserSettings(selectedPlaylists, interests)
+  const { selectedPlaylists, interests, deliveryTimeHour, deliveryTimeMinute } = await request.json()
+  return saveUserSettings(selectedPlaylists, interests, deliveryTimeHour, deliveryTimeMinute)
 }
