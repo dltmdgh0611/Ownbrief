@@ -4,6 +4,7 @@
 
 이 시스템은 사용자가 설정한 시간에 자동으로 팟캐스트를 생성하는 기능을 제공합니다.
 
+
 ## 주요 기능
 
 1. **시간 설정**: 온보딩 및 설정 페이지에서 매일 팟캐스트를 받을 시간 설정
@@ -19,7 +20,6 @@
 
 ```bash
 # Vercel Cron Job 보안을 위한 시크릿 키
-CRON_SECRET=your-random-secret-key-here
 ```
 
 **CRON_SECRET 생성 방법:**
