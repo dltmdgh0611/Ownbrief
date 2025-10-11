@@ -8,6 +8,51 @@ import { uploadAudioToStorage } from '@/backend/lib/supabase'
 // Vercel Cron Jobs에서만 실행 가능하도록 설정
 export const maxDuration = 300
 
+// Google OAuth 토큰 갱신 함수
+async function refreshAccessToken(userId: string, refreshToken: string): Promise<string | null> {
+  try {
+    console.log(`🔄 Refreshing access token for user ${userId}...`)
+    
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to refresh token')
+    }
+
+    // DB 업데이트
+    await prisma.account.updateMany({
+      where: {
+        userId: userId,
+        provider: 'google',
+      },
+      data: {
+        access_token: data.access_token,
+        expires_at: Math.floor(Date.now() / 1000) + data.expires_in,
+        refresh_token: data.refresh_token || refreshToken,
+      },
+    })
+
+    console.log(`✅ Access token refreshed for user ${userId}`)
+    return data.access_token
+  } catch (error) {
+    console.error(`❌ Failed to refresh token for user ${userId}:`, error)
+    return null
+  }
+}
+
 export async function GET(request: NextRequest) {
   console.log('🕐 Auto-generate podcasts cron job started...')
 
@@ -89,7 +134,38 @@ export async function GET(request: NextRequest) {
           continue
         }
 
-        const accessToken = account.access_token
+        let accessToken = account.access_token
+
+        // 토큰 만료 확인 및 갱신
+        if (account.expires_at && account.expires_at * 1000 < Date.now()) {
+          console.log(`⏰ Access token expired for user ${user.email}, refreshing...`)
+          
+          if (!account.refresh_token) {
+            console.log(`⚠️ No refresh token available for user ${user.email}`)
+            results.push({
+              userId: user.id,
+              email: user.email,
+              success: false,
+              error: 'No refresh token - please re-login',
+            })
+            continue
+          }
+
+          const newAccessToken = await refreshAccessToken(user.id, account.refresh_token)
+          
+          if (!newAccessToken) {
+            console.log(`⚠️ Failed to refresh token for user ${user.email}`)
+            results.push({
+              userId: user.id,
+              email: user.email,
+              success: false,
+              error: 'Failed to refresh access token',
+            })
+            continue
+          }
+
+          accessToken = newAccessToken
+        }
         const selectedPlaylists = user.userSettings.selectedPlaylists || []
 
         if (selectedPlaylists.length === 0) {
