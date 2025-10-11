@@ -19,25 +19,28 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 현재 시간으로부터 1시간 후 계산
+    // 현재 UTC 시간
     const now = new Date()
-    const targetHour = (now.getHours() + 1) % 24
+    const utcHour = now.getUTCHours()
+    const utcMinute = now.getUTCMinutes()
     
-    // 분 단위는 0, 15, 30, 45로 반올림
-    const currentMinute = now.getMinutes()
-    let targetMinute = 0
-    if (currentMinute >= 45) targetMinute = 0
-    else if (currentMinute >= 30) targetMinute = 45
-    else if (currentMinute >= 15) targetMinute = 30
-    else targetMinute = 15
+    // UTC를 한국 시간(KST, UTC+9)으로 변환
+    const kstTotalMinutes = (utcHour * 60 + utcMinute + 9 * 60) % (24 * 60)
+    const kstHour = Math.floor(kstTotalMinutes / 60)
+    const kstMinute = kstTotalMinutes % 60
+    
+    // 15분 단위로 반올림 (0, 15, 30, 45)
+    const targetMinute = Math.floor(kstMinute / 15) * 15
 
-    console.log(`⏰ Target delivery time: ${targetHour}:${targetMinute}`)
+    console.log(`⏰ Current UTC time: ${now.toISOString()}`)
+    console.log(`⏰ Current KST time: ${String(kstHour).padStart(2, '0')}:${String(kstMinute).padStart(2, '0')}`)
+    console.log(`⏰ Target delivery time (KST): ${String(kstHour).padStart(2, '0')}:${String(targetMinute).padStart(2, '0')}`)
 
     // 해당 시간에 팟캐스트를 받기로 설정한 사용자들 조회
     const users = await prisma.user.findMany({
       where: {
         userSettings: {
-          deliveryTimeHour: targetHour,
+          deliveryTimeHour: kstHour,
           deliveryTimeMinute: targetMinute,
           onboardingCompleted: true,
         },
@@ -243,7 +246,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      targetTime: `${targetHour}:${targetMinute}`,
+      currentKST: `${String(kstHour).padStart(2, '0')}:${String(kstMinute).padStart(2, '0')} KST`,
+      targetTime: `${String(kstHour).padStart(2, '0')}:${String(targetMinute).padStart(2, '0')} KST`,
       usersProcessed: users.length,
       results,
     })
