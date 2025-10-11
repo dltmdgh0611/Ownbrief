@@ -44,9 +44,43 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, account, user }) {
       // 초기 로그인 시
       if (account) {
+        console.log('🔐 JWT Callback - Account received:', {
+          provider: account.provider,
+          hasAccessToken: !!account.access_token,
+          hasRefreshToken: !!account.refresh_token,
+          expiresAt: account.expires_at,
+        })
+        
         token.accessToken = account.access_token
         token.refreshToken = account.refresh_token
         token.expiresAt = account.expires_at
+        
+        // DB에도 직접 저장 (PrismaAdapter가 제대로 저장하지 못할 수 있음)
+        if (user?.id && account.refresh_token) {
+          try {
+            await prisma.account.updateMany({
+              where: {
+                userId: user.id,
+                provider: account.provider,
+              },
+              data: {
+                access_token: account.access_token,
+                refresh_token: account.refresh_token,
+                expires_at: account.expires_at,
+              },
+            })
+            console.log('✅ Refresh token saved to DB for user:', user.id)
+          } catch (error) {
+            console.error('❌ Failed to save refresh token to DB:', error)
+          }
+        } else if (user?.id && !account.refresh_token) {
+          console.error('⚠️ Google did not provide refresh_token! Check OAuth app settings.')
+          console.error('Account data:', {
+            provider: account.provider,
+            type: account.type,
+            scope: account.scope,
+          })
+        }
       }
       if (user) {
         token.userId = user.id

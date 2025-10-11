@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import Header from '@/frontend/components/Header'
 import PodcastGenerator from '@/frontend/components/PodcastGenerator'
+import TokenStatusBanner from '@/frontend/components/TokenStatusBanner'
 import { useOnboarding } from '@/frontend/hooks/useOnboarding'
 
 export default function Home() {
@@ -62,6 +63,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <Header />
+      <TokenStatusBanner />
       <main className="pb-6">
         <PodcastGenerator />
       </main>
