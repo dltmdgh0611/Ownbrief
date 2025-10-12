@@ -193,16 +193,63 @@ export default function PodcastGenerator() {
   }
 
   const cleanScript = (script: string) => {
-    // **텍스트** 형식 제거
-    let cleaned = script.replace(/\*\*(.*?)\*\*/g, '$1')
-    // **단독으로 있는 별표들 제거
-    cleaned = cleaned.replace(/\*\*/g, '')
+    let cleaned = script
+    
+    // 마크다운 헤더 제거 (# ## ### 등)
+    cleaned = cleaned.replace(/^#+\s+/gm, '')
+    
+    // **굵은 글씨** 제거
+    cleaned = cleaned.replace(/\*\*(.*?)\*\*/g, '$1')
+    
+    // *이탤릭* 제거
+    cleaned = cleaned.replace(/\*(.*?)\*/g, '$1')
+    
+    // __굵은 글씨__ 제거
+    cleaned = cleaned.replace(/__(.*?)__/g, '$1')
+    
+    // _이탤릭_ 제거
+    cleaned = cleaned.replace(/_(.*?)_/g, '$1')
+    
+    // ~~취소선~~ 제거
+    cleaned = cleaned.replace(/~~(.*?)~~/g, '$1')
+    
+    // [링크 텍스트](url) 형식 → 링크 텍스트만 남김
+    cleaned = cleaned.replace(/\[(.*?)\]\(.*?\)/g, '$1')
+    
     // [대괄호] 안의 텍스트 제거
     cleaned = cleaned.replace(/\[.*?\]/g, '')
-    // 중복 줄바꿈 정리
+    
+    // `코드` 백틱 제거
+    cleaned = cleaned.replace(/`([^`]+)`/g, '$1')
+    
+    // ```코드 블록``` 제거
+    cleaned = cleaned.replace(/```[\s\S]*?```/g, '')
+    
+    // > 인용구 제거
+    cleaned = cleaned.replace(/^>\s+/gm, '')
+    
+    // --- 또는 *** 구분선 제거
+    cleaned = cleaned.replace(/^[-*]{3,}\s*$/gm, '')
+    
+    // 단독으로 있는 별표들 제거
+    cleaned = cleaned.replace(/\*+/g, '')
+    
+    // 리스트 마커 제거 (-, *, +, 숫자.)
+    cleaned = cleaned.replace(/^[\s]*[-*+]\s+/gm, '')
+    cleaned = cleaned.replace(/^[\s]*\d+\.\s+/gm, '')
+    
+    // HTML 태그 제거
+    cleaned = cleaned.replace(/<[^>]*>/g, '')
+    
+    // 중복 줄바꿈 정리 (3개 이상 → 2개)
     cleaned = cleaned.replace(/\n{3,}/g, '\n\n')
-    // 앞뒤 공백 제거
+    
+    // 각 줄의 앞뒤 공백 제거
+    cleaned = cleaned.split('\n').map(line => line.trim()).join('\n')
+    
+    // 전체 앞뒤 공백 제거
     cleaned = cleaned.trim()
+    
     return cleaned
   }
 
