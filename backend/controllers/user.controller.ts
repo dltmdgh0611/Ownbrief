@@ -20,12 +20,15 @@ export async function getUserSettings() {
     console.log('🔍 사용자 설정 가져오기:', session.user.email)
 
     const userSettings = await UserService.getUserSettings(session.user.email)
+    const isAdmin = await UserService.isAdmin(session.user.email)
 
     const settings = {
       selectedPlaylists: userSettings?.selectedPlaylists || [],
       interests: userSettings?.interests || [],
       deliveryTimeHour: userSettings?.deliveryTimeHour ?? 8,
-      deliveryTimeMinute: userSettings?.deliveryTimeMinute ?? 0
+      deliveryTimeMinute: userSettings?.deliveryTimeMinute ?? 0,
+      lastDeliveryTimeUpdate: userSettings?.lastDeliveryTimeUpdate || null,
+      isAdmin
     }
 
     console.log('✅ 사용자 설정 가져오기 완료:', settings)

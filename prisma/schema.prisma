@@ -76,16 +76,17 @@ model Podcast {
 }
 
 model UserSettings {
-  id                   String   @id @default(cuid())
-  userId               String   @unique
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  selectedPlaylists    String[] // 선택한 유튜브 플레이리스트 ID 배열
-  interests            String[] // 관심 키워드 배열
-  onboardingCompleted  Boolean  @default(false) // 온보딩 완료 여부
-  deliveryTimeHour     Int      @default(8) // 팟캐스트 받을 시간 (0-23)
-  deliveryTimeMinute   Int      @default(0) // 팟캐스트 받을 분 (0-59)
-  credits              Int      @default(15) // 남은 크레딧 수
-  isAdmin              Boolean  @default(false) // 관리자 권한
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  selectedPlaylists    String[]  // 선택한 유튜브 플레이리스트 ID 배열
+  interests            String[]  // 관심 키워드 배열
+  onboardingCompleted  Boolean   @default(false) // 온보딩 완료 여부
+  deliveryTimeHour     Int       @default(8) // 팟캐스트 받을 시간 (0-23)
+  deliveryTimeMinute   Int       @default(0) // 팟캐스트 받을 분 (0-59)
+  lastDeliveryTimeUpdate DateTime? // 마지막 배달 시간 수정 시각
+  credits              Int       @default(15) // 남은 크레딧 수
+  isAdmin              Boolean   @default(false) // 관리자 권한
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }

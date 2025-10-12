@@ -177,7 +177,7 @@ export class UserService {
   }
 
   /**
-   * 배달 시간 업데이트
+   * 배달 시간 업데이트 (하루에 한 번만 가능, 관리자는 무제한)
    */
   static async updateDeliveryTime(
     userEmail: string,
@@ -193,18 +193,35 @@ export class UserService {
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: userEmail }
+      where: { email: userEmail },
+      include: { userSettings: true }
     })
 
     if (!user) {
       throw new Error('사용자를 찾을 수 없습니다.')
     }
 
+    // 관리자 권한 확인
+    const isAdmin = await this.isAdmin(userEmail)
+    
+    // 관리자가 아닌 경우 하루에 한 번만 수정 가능
+    if (!isAdmin && user.userSettings?.lastDeliveryTimeUpdate) {
+      const lastUpdate = new Date(user.userSettings.lastDeliveryTimeUpdate)
+      const now = new Date()
+      const hoursSinceLastUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60)
+      
+      if (hoursSinceLastUpdate < 24) {
+        const hoursRemaining = Math.ceil(24 - hoursSinceLastUpdate)
+        throw new Error(`배달 시간은 하루에 한 번만 변경할 수 있습니다. ${hoursRemaining}시간 후에 다시 시도해주세요.`)
+      }
+    }
+
     return await prisma.userSettings.update({
       where: { userId: user.id },
       data: {
         deliveryTimeHour,
-        deliveryTimeMinute
+        deliveryTimeMinute,
+        lastDeliveryTimeUpdate: new Date()
       }
     })
   }

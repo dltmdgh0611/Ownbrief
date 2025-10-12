@@ -19,6 +19,8 @@ interface UserSettings {
   interests: string[]
   deliveryTimeHour: number
   deliveryTimeMinute: number
+  lastDeliveryTimeUpdate?: string | null
+  isAdmin?: boolean
 }
 
 const AVAILABLE_INTERESTS = [
@@ -35,6 +37,8 @@ export default function SettingsPage() {
   const [interests, setInterests] = useState<string[]>([])
   const [deliveryTimeHour, setDeliveryTimeHour] = useState(8)
   const [deliveryTimeMinute, setDeliveryTimeMinute] = useState(0)
+  const [lastDeliveryTimeUpdate, setLastDeliveryTimeUpdate] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -73,6 +77,8 @@ export default function SettingsPage() {
         setInterests(data.settings.interests || [])
         setDeliveryTimeHour(data.settings.deliveryTimeHour ?? 8)
         setDeliveryTimeMinute(data.settings.deliveryTimeMinute ?? 0)
+        setLastDeliveryTimeUpdate(data.settings.lastDeliveryTimeUpdate || null)
+        setIsAdmin(data.settings.isAdmin || false)
       }
     } catch (error) {
       console.error('Error fetching user settings:', error)
@@ -342,6 +348,31 @@ export default function SettingsPage() {
                 💡 설정한 시간 1시간 전에 자동으로 팟캐스트가 생성되며, 설정한 시간에 공개됩니다.
               </p>
             </div>
+            
+            {/* 배달 시간 수정 제한 안내 */}
+            {!isAdmin && lastDeliveryTimeUpdate && (
+              <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-xs text-yellow-700">
+                  ⚠️ 배달 시간은 하루에 한 번만 변경할 수 있습니다.
+                  <br />
+                  마지막 수정: {new Date(lastDeliveryTimeUpdate).toLocaleString('ko-KR', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+            )}
+            
+            {isAdmin && (
+              <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <p className="text-xs text-purple-700">
+                  👑 관리자는 배달 시간을 언제든지 변경할 수 있습니다.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* 저장 버튼 */}
