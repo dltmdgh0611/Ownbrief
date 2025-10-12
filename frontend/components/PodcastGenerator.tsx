@@ -409,8 +409,8 @@ export default function PodcastGenerator() {
 
       {/* 스포티파이 스타일 플레이어 모달 */}
       {selectedPodcast && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="w-full sm:max-w-2xl bg-gradient-to-b from-gray-900 to-black text-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] flex flex-col animate-slide-up">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 pointer-events-none">
+          <div className="w-full sm:max-w-2xl bg-gradient-to-b from-gray-900 to-black text-white rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] flex flex-col animate-slide-up pointer-events-auto">
             {/* 헤더 */}
             <div className="p-6 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
               <h3 className="text-xl font-bold truncate pr-4">{selectedPodcast.title}</h3>
