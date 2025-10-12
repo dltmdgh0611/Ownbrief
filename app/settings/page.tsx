@@ -145,7 +145,7 @@ export default function SettingsPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-brand" />
       </div>
     )
@@ -157,9 +157,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div className="h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
       {/* 헤더 */}
-      <div className="bg-gradient-to-r from-brand to-brand-light text-white p-4 sticky top-0 z-50 shadow-lg">
+      <div className="bg-gradient-to-r from-brand to-brand-light text-white p-4 flex-shrink-0 shadow-lg">
         <div className="flex items-center space-x-3">
           <Link
             href="/"
@@ -179,7 +179,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="px-4 py-6">
+      <div className="flex-1 overflow-y-auto px-4 py-6">
         {message && (
           <div className={`mb-4 p-4 rounded-xl font-medium text-sm ${
             message.includes('실패') || message.includes('오류') 

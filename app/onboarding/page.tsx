@@ -217,7 +217,7 @@ export default function OnboardingPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-brand border-t-transparent"></div>
       </div>
     );
@@ -226,8 +226,8 @@ export default function OnboardingPage() {
   // Step 1: 환영 및 관심사 선택
   if (step === 1) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white">
-        <div className="px-4 py-8 pb-24">
+      <div className="h-screen bg-gradient-to-b from-primary-50 to-white flex flex-col">
+        <div className="flex-1 overflow-y-auto px-4 py-8 pb-24">
           {/* 뒤로가기 버튼 */}
           <div className="mb-4">
             <button
@@ -323,8 +323,8 @@ export default function OnboardingPage() {
   // Step 2: 플레이리스트 선택 타입 선택
   if (step === 2) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-        <div className="px-4 py-8 pb-24">
+      <div className="h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
+        <div className="flex-1 overflow-y-auto px-4 py-8 pb-24">
           {/* 헤더 */}
           <div className="mb-6">
             <button
@@ -421,8 +421,8 @@ export default function OnboardingPage() {
   // Step 3: 기존 플레이리스트 선택
   if (step === 3) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-        <div className="px-4 py-8 pb-24">
+      <div className="h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
+        <div className="flex-1 overflow-y-auto px-4 py-8 pb-24">
           {/* 헤더 */}
           <div className="mb-6">
             <button
@@ -551,8 +551,8 @@ export default function OnboardingPage() {
   // Step 4: 새 플레이리스트 생성
   if (step === 4) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-        <div className="px-4 py-8 pb-24">
+      <div className="h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
+        <div className="flex-1 overflow-y-auto px-4 py-8 pb-24">
           {/* 헤더 */}
           <div className="mb-6">
             <button
@@ -648,8 +648,8 @@ export default function OnboardingPage() {
   // Step 5: 마지막 확인 단계
   if (step === 5) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-        <div className="px-4 py-8 pb-24">
+      <div className="h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
+        <div className="flex-1 overflow-y-auto px-4 py-8 pb-24">
           {/* 헤더 */}
           <div className="mb-6">
             <button
@@ -798,7 +798,7 @@ export default function OnboardingPage() {
 
   // 기본 반환 (에러 상태)
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
         <h1 className="text-xl font-bold text-gray-900 mb-2">알 수 없는 오류</h1>
         <p className="text-gray-600 mb-4">온보딩 과정에서 오류가 발생했습니다.</p>

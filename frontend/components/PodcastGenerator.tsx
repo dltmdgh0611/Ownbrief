@@ -2,8 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Play, Loader2, CheckCircle, XCircle, Clock, Mic2, ListMusic } from 'lucide-react'
+import { Play, Loader2, CheckCircle, XCircle, Clock, Mic2, ListMusic, Settings, X } from 'lucide-react'
 import StepByStepModal from './StepByStepModal'
+import PricingModal from './PricingModal'
+import ProPlanTooltip from './ProPlanTooltip'
+import AdminCreditManager from './AdminCreditManager'
 import { apiGet } from '@/backend/lib/api-client'
 
 interface Podcast {
@@ -22,13 +25,19 @@ export default function PodcastGenerator() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [podcasts, setPodcasts] = useState<Podcast[]>([])
   const [showModal, setShowModal] = useState(false)
+  const [showPricingModal, setShowPricingModal] = useState(false)
+  const [showProPlanTooltip, setShowProPlanTooltip] = useState(false)
+  const [showAdminManager, setShowAdminManager] = useState(false)
   const [credits, setCredits] = useState<number>(0)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [showTooltip, setShowTooltip] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   // 페이지 로드 시 모달 상태 복구
   useEffect(() => {
     fetchPodcasts()
     fetchCredits()
+    checkAdminPermission()
     
     // localStorage에서 모달 상태 복구
     const savedModalState = localStorage.getItem('podcast_modal_open')
@@ -90,9 +99,33 @@ export default function PodcastGenerator() {
       if (response.ok) {
         const data = await response.json()
         setCredits(data.credits)
+        
+        // 크레딧이 10개 이하면 tooltip 표시
+        if (data.credits <= 10 && data.credits > 0) {
+          setShowTooltip(true)
+          // 5초 후 tooltip 자동 숨김
+          setTimeout(() => setShowTooltip(false), 5000)
+        }
+        
+        // 크레딧이 0이면 Pro 플랜 툴팁 표시
+        if (data.credits === 0) {
+          setShowProPlanTooltip(true)
+        }
       }
     } catch (error) {
       console.error('Error fetching credits:', error)
+    }
+  }
+
+  const checkAdminPermission = async () => {
+    try {
+      const response = await fetch('/api/admin/check-permission')
+      if (response.ok) {
+        const data = await response.json()
+        setIsAdmin(data.isAdmin)
+      }
+    } catch (error) {
+      console.error('Error checking admin permission:', error)
     }
   }
 
@@ -159,25 +192,67 @@ export default function PodcastGenerator() {
   return (
     <div className="px-4 py-6 space-y-6">
       {/* 크레딧 표시 */}
-      <div className="app-card p-4 bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200 fade-in">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-amber-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">💳</span>
+      <div className="relative">
+        <div 
+          className="app-card p-4 bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200 fade-in cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => setShowPricingModal(true)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-amber-500 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">💳</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">남은 크레딧</p>
+                <p className="text-xs text-gray-600">매일 자동으로 팟캐스트를 생성합니다</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-900">남은 크레딧</p>
-              <p className="text-xs text-gray-600">매일 자동으로 팟캐스트를 생성합니다</p>
-            </div>
-          </div>
           <div className="text-right">
-            <p className="text-2xl font-bold text-amber-600">{credits}</p>
-            <p className="text-xs text-gray-500">개</p>
+            <div className="flex items-center space-x-2">
+              <p className="text-2xl font-bold text-amber-600">{credits}</p>
+              <p className="text-xs text-gray-500">개</p>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowAdminManager(true)}
+                  className="w-8 h-8 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center justify-center transition-colors"
+                  title="관리자 크레딧 관리"
+                >
+                  <Settings className="w-4 h-4 text-white" />
+                </button>
+              )}
+            </div>
           </div>
+          </div>
+          {credits === 0 && (
+            <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-xs text-red-700">⚠️ 크레딧이 부족합니다. 팟캐스트를 생성할 수 없습니다.</p>
+            </div>
+          )}
         </div>
-        {credits === 0 && (
-          <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-xs text-red-700">⚠️ 크레딧이 부족합니다. 팟캐스트를 생성할 수 없습니다.</p>
+
+        {/* Tooltip - 담백한 스타일 */}
+        {showTooltip && credits <= 10 && credits > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-2 z-10 px-2">
+            <div className="bg-white border border-gray-300 rounded-lg shadow-lg px-4 py-3">
+              <div className="flex items-start space-x-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium mb-1 text-gray-900">크레딧이 얼마 남지 않았어요</p>
+                  <p className="text-sm text-gray-600">클릭해서 플랜을 확인하세요</p>
+                </div>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowTooltip(false)
+                  }}
+                  className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 transition-colors flex-shrink-0"
+                  aria-label="닫기"
+                >
+                  <X className="w-4 h-4 text-gray-500" />
+                </button>
+              </div>
+              {/* 화살표 */}
+              <div className="absolute -top-1 left-6 w-2 h-2 bg-white border-l border-t border-gray-300 rotate-45"></div>
+            </div>
           </div>
         )}
       </div>
@@ -316,6 +391,22 @@ export default function PodcastGenerator() {
         isOpen={showModal}
         onClose={handleModalClose}
         onComplete={handleModalComplete}
+      />
+
+      <PricingModal
+        isOpen={showPricingModal}
+        onClose={() => setShowPricingModal(false)}
+      />
+
+      <ProPlanTooltip
+        isVisible={showProPlanTooltip}
+        onClose={() => setShowProPlanTooltip(false)}
+        credits={credits}
+      />
+
+      <AdminCreditManager
+        isVisible={showAdminManager}
+        onClose={() => setShowAdminManager(false)}
       />
     </div>
   )

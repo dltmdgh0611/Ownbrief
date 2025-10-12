@@ -1,42 +1,21 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import OpenAI from 'openai'
-import { writeFile, unlink } from 'fs/promises'
-import { join } from 'path'
-import { tmpdir } from 'os'
 
 // API 키 검증
-if (!process.env.GEMINI_API_KEY && !process.env.OPENAI_API_KEY) {
-  console.error('❌ GEMINI_API_KEY 또는 OPENAI_API_KEY 중 하나는 필수입니다!')
-  console.error('📝 .env.local 파일에 API 키를 추가하세요.')
-  throw new Error('GEMINI_API_KEY 또는 OPENAI_API_KEY 환경 변수가 필요합니다.')
+if (!process.env.GEMINI_API_KEY) {
+  console.error('❌ GEMINI_API_KEY가 필수입니다!')
+  console.error('📝 .env.local 파일에 GEMINI_API_KEY를 추가하세요.')
+  throw new Error('GEMINI_API_KEY 환경 변수가 필요합니다.')
 }
 
 // Gemini API 클라이언트
-const genAI = process.env.GEMINI_API_KEY 
-  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-  : null
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 
-// OpenAI API 클라이언트 (폴백용)
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null
-
-// 사용 가능한 API 확인
-if (genAI) {
-  console.log('✅ Gemini API 사용 가능')
-}
-if (openai) {
-  console.log('✅ OpenAI API 사용 가능 (폴백)')
-}
+console.log('✅ Gemini API 사용 가능')
 
 export async function generatePodcastScript(transcriptText: string): Promise<string> {
   console.log('🤖 Gemini 스크립트 생성 시작...')
   console.log(`📝 자막 텍스트 길이: ${transcriptText.length}자`)
   console.log(`📝 자막 텍스트 미리보기: ${transcriptText.substring(0, 200)}...`)
-  
-  if (!genAI) {
-    throw new Error('Gemini API is not available. Please check your GEMINI_API_KEY.')
-  }
   
   const MAX_RETRIES = 3
   const RETRY_DELAY = 5000 // 5초
@@ -175,10 +154,6 @@ export async function generateMultiSpeakerSpeech(script: string): Promise<AudioR
   if (script.length > 32000) {
     console.warn('⚠️ 스크립트가 너무 깁니다. 처음 32000자만 사용합니다.')
     script = script.substring(0, 32000)
-  }
-  
-  if (!genAI) {
-    throw new Error('Gemini API is not available. Please check your GEMINI_API_KEY.')
   }
   
   const MAX_RETRIES = 3

@@ -27,6 +27,9 @@ module.exports = {
           dark: '#0f2e22',
         },
       },
+      scale: {
+        '98': '0.98',
+      },
     },
   },
   plugins: [],

@@ -34,9 +34,11 @@ export default function Home() {
   // 로딩 중 (세션 또는 온보딩 상태)
   if (status === 'loading' || (session && onboardingLoading)) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="flex items-center justify-center h-64">
+      <div className="h-screen bg-gray-50 flex flex-col">
+        <div className="flex-shrink-0">
+          <Header />
+        </div>
+        <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-brand border-t-transparent"></div>
         </div>
       </div>
@@ -46,9 +48,11 @@ export default function Home() {
   // 온보딩 필요한 사용자는 리다이렉트 되므로 로딩 표시
   if (session && onboardingStatus?.needsOnboarding) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="flex items-center justify-center h-64">
+      <div className="h-screen bg-gray-50 flex flex-col">
+        <div className="flex-shrink-0">
+          <Header />
+        </div>
+        <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-brand border-t-transparent"></div>
         </div>
       </div>
@@ -61,11 +65,18 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      <Header />
-      <TokenStatusBanner />
-      <main className="pb-6">
-        <PodcastGenerator />
+    <div className="h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
+      {/* 상단 고정 헤더 */}
+      <div className="flex-shrink-0">
+        <Header />
+        <TokenStatusBanner />
+      </div>
+      
+      {/* 스크롤 가능한 메인 콘텐츠 */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="pb-6">
+          <PodcastGenerator />
+        </div>
       </main>
     </div>
   )

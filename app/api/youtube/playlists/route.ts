@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
         },
         status: {
           privacyStatus: 'public'
+          
         }
       })
     })

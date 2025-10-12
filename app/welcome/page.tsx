@@ -18,7 +18,7 @@ export default function WelcomePage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white flex items-center justify-center">
+      <div className="h-screen bg-gradient-to-b from-primary-50 to-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-brand border-t-transparent"></div>
       </div>
     );
@@ -29,8 +29,8 @@ export default function WelcomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white flex items-center justify-center px-4">
-      <div className="text-center fade-in">
+    <div className="h-screen bg-gradient-to-b from-primary-50 to-white flex items-center justify-center px-4 overflow-y-auto">
+      <div className="text-center fade-in py-8">
         {/* 로고 */}
         <div className="w-28 h-28 bg-gradient-to-br from-brand to-brand-light rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl">
           <Mic2 className="w-14 h-14 text-white" />

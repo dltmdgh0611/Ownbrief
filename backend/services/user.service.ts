@@ -91,21 +91,6 @@ export class UserService {
       throw new Error('사용자를 찾을 수 없습니다.')
     }
 
-    const updateData: any = {
-      selectedPlaylists
-    }
-
-    if (interests !== undefined) {
-      updateData.interests = interests
-    }
-
-    if (deliveryTimeHour !== undefined) {
-      updateData.deliveryTimeHour = deliveryTimeHour
-    }
-
-    if (deliveryTimeMinute !== undefined) {
-      updateData.deliveryTimeMinute = deliveryTimeMinute
-    }
 
     return await prisma.userSettings.upsert({
       where: { userId: user.id },
@@ -115,9 +100,63 @@ export class UserService {
         interests: interests || [],
         deliveryTimeHour: deliveryTimeHour ?? 8,
         deliveryTimeMinute: deliveryTimeMinute ?? 0,
+        onboardingCompleted: false,
+        credits: 15
       },
-      update: updateData
+      update: {
+        selectedPlaylists,
+        interests: interests || [],
+        deliveryTimeHour: deliveryTimeHour ?? 8,
+        deliveryTimeMinute: deliveryTimeMinute ?? 0
+      }
     })
+  }
+
+  /**
+   * 관리자 권한 확인
+   */
+  static async isAdmin(userEmail: string): Promise<boolean> {
+    // 특정 이메일을 관리자로 설정
+    if (userEmail === 'dltmdgh0611@gmail.com') {
+      return true
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: userEmail },
+      include: { userSettings: true }
+    })
+
+    return user?.userSettings?.isAdmin || false
+  }
+
+  /**
+   * 크레딧 조정 (관리자만)
+   */
+  static async adjustCredits(userEmail: string, targetEmail: string, credits: number): Promise<number> {
+    const isAdmin = await this.isAdmin(userEmail)
+    if (!isAdmin) {
+      throw new Error('관리자 권한이 필요합니다.')
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { email: targetEmail },
+      include: { userSettings: true }
+    })
+
+    if (!targetUser) {
+      throw new Error('대상 사용자를 찾을 수 없습니다.')
+    }
+
+    if (!targetUser.userSettings) {
+      throw new Error('대상 사용자의 설정을 찾을 수 없습니다.')
+    }
+
+    const updated = await prisma.userSettings.update({
+      where: { userId: targetUser.id },
+      data: { credits }
+    })
+
+    return updated.credits
   }
 
   /**

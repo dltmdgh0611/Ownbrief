@@ -104,6 +104,30 @@ body {
   animation: slideUp 0.3s ease-out;
 }
 
+/* 모바일 친화적인 애니메이션 */
+@keyframes slideUpMobile {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up-mobile {
+  animation: slideUpMobile 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 터치 피드백 개선 */
+@media (hover: none) and (pointer: coarse) {
+  .app-button:active,
+  .app-card:active {
+    transition: transform 0.1s ease;
+  }
+}
+
 /* 카드 스타일 */
 .app-card {
   background: white;

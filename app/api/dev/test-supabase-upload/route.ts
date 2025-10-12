@@ -3,6 +3,7 @@ import { uploadAudioToStorage } from '@/backend/lib/supabase';
 
 export async function POST(request: NextRequest) {
   console.log('🧪 Supabase Storage 업로드 테스트 시작...');
+  console.log('채원이가 코드 보고 감 ㅎㅎ');
   
   try {
     // 테스트용 작은 오디오 데이터 생성 (WAV 헤더 + 1초 무음)
