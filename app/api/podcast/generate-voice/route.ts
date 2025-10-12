@@ -5,7 +5,7 @@ import { generateMultiSpeakerSpeech } from '@/backend/lib/gemini'
 import { prisma } from '@/backend/lib/prisma'
 import { uploadAudioToStorage } from '@/backend/lib/supabase'
 
-// Vercel Hobby plan max: 300s (5 minutes)
+// Vercel Pro plan max: 300s (5 minutes) for regular API endpoints
 export const maxDuration = 300
 
 export async function POST(request: NextRequest) {

@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Settings, LogOut, Trash2, Loader2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
 import { apiGet, apiPost, apiDelete } from '@/backend/lib/api-client'
+import { PlaylistItemSkeleton } from '@/frontend/components/PlaylistSkeleton'
 
 interface Playlist {
   id: string
@@ -302,11 +303,10 @@ export default function SettingsPage() {
                 </div>
 
                 {isLoading ? (
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <Loader2 className="h-8 w-8 animate-spin text-brand" />
-                    </div>
-                    <p className="text-sm text-gray-600">플레이리스트를 가져오는 중...</p>
+                  <div className="space-y-3">
+                    <PlaylistItemSkeleton />
+                    <PlaylistItemSkeleton />
+                    <PlaylistItemSkeleton />
                   </div>
                 ) : (
                   <div className="space-y-3">

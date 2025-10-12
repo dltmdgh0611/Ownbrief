@@ -5,8 +5,8 @@ import { getVideoTranscript, combineTranscripts } from '@/backend/lib/subtitle'
 import { generatePodcastScript, generateMultiSpeakerSpeech } from '@/backend/lib/gemini'
 import { uploadAudioToStorage } from '@/backend/lib/supabase'
 
-// Vercel Cron Jobs에서만 실행 가능하도록 설정
-export const maxDuration = 300
+// Vercel Pro: Cron Jobs can run up to 900s (15 minutes)
+export const maxDuration = 900
 
 // Google OAuth 토큰 갱신 함수
 async function refreshAccessToken(userId: string, refreshToken: string): Promise<string | null> {

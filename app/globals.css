@@ -120,6 +120,20 @@ body {
   animation: slideUpMobile 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* 스켈레톤 로딩 shimmer 애니메이션 */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s infinite;
+}
+
 /* 터치 피드백 개선 */
 @media (hover: none) and (pointer: coarse) {
   .app-button:active,

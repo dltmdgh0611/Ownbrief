@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Sparkles, ChevronRight, Check, Play, List, Mic2, Clock } from 'lucide-react';
+import SkeletonLoader from '@/frontend/components/SkeletonLoader';
 
 const AVAILABLE_INTERESTS = [
   'AI', 'Technology', 'Startup', 'Business', 'Marketing',
@@ -469,8 +470,19 @@ export default function OnboardingPage() {
 
           {/* 플레이리스트 목록 */}
           {loadingPlaylists ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-4 border-brand border-t-transparent"></div>
+            <div className="space-y-3 mb-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="app-card p-4">
+                  <div className="flex items-start space-x-3">
+                    <SkeletonLoader width="w-12" height="h-12" rounded="xl" className="flex-shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <SkeletonLoader width="w-3/4" height="h-5" />
+                      <SkeletonLoader width="w-full" height="h-4" />
+                      <SkeletonLoader width="w-24" height="h-3" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <>

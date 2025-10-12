@@ -7,6 +7,7 @@ import StepByStepModal from './StepByStepModal'
 import PricingModal from './PricingModal'
 import ProPlanTooltip from './ProPlanTooltip'
 import AdminCreditManager from './AdminCreditManager'
+import { CreditCardSkeleton, PodcastCardSkeleton } from './SkeletonLoader'
 import { apiGet } from '@/backend/lib/api-client'
 
 interface Podcast {
@@ -35,6 +36,8 @@ export default function PodcastGenerator() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [selectedPodcast, setSelectedPodcast] = useState<Podcast | null>(null)
   const [playbackRate, setPlaybackRate] = useState(1.0)
+  const [isLoadingPodcasts, setIsLoadingPodcasts] = useState(true)
+  const [isLoadingCredits, setIsLoadingCredits] = useState(true)
 
   // 페이지 로드 시 모달 상태 복구
   useEffect(() => {
@@ -86,6 +89,7 @@ export default function PodcastGenerator() {
 
   const fetchPodcasts = async () => {
     try {
+      setIsLoadingPodcasts(true)
       const { data } = await apiGet<Podcast[]>('/api/podcast')
       
       if (data) {
@@ -93,11 +97,14 @@ export default function PodcastGenerator() {
       }
     } catch (error) {
       console.error('Error fetching podcasts:', error)
+    } finally {
+      setIsLoadingPodcasts(false)
     }
   }
 
   const fetchCredits = async () => {
     try {
+      setIsLoadingCredits(true)
       const response = await fetch('/api/user/credits')
       if (response.ok) {
         const data = await response.json()
@@ -117,6 +124,8 @@ export default function PodcastGenerator() {
       }
     } catch (error) {
       console.error('Error fetching credits:', error)
+    } finally {
+      setIsLoadingCredits(false)
     }
   }
 
@@ -257,42 +266,46 @@ export default function PodcastGenerator() {
     <div className="px-4 py-6 space-y-6">
       {/* 크레딧 표시 */}
       <div className="relative">
-        <div 
-          className="app-card p-4 bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200 fade-in cursor-pointer hover:shadow-lg transition-all"
-          onClick={() => setShowPricingModal(true)}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-amber-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">💳</span>
+        {isLoadingCredits ? (
+          <CreditCardSkeleton />
+        ) : (
+          <div 
+            className="app-card p-4 bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200 fade-in cursor-pointer hover:shadow-lg transition-all"
+            onClick={() => setShowPricingModal(true)}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-amber-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">💳</span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">남은 크레딧</p>
+                  <p className="text-xs text-gray-600">매일 자동으로 팟캐스트를 생성합니다</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">남은 크레딧</p>
-                <p className="text-xs text-gray-600">매일 자동으로 팟캐스트를 생성합니다</p>
+            <div className="text-right">
+              <div className="flex items-center space-x-2">
+                <p className="text-2xl font-bold text-amber-600">{credits}</p>
+                <p className="text-xs text-gray-500">개</p>
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowAdminManager(true)}
+                    className="w-8 h-8 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center justify-center transition-colors"
+                    title="관리자 크레딧 관리"
+                  >
+                    <Settings className="w-4 h-4 text-white" />
+                  </button>
+                )}
               </div>
             </div>
-          <div className="text-right">
-            <div className="flex items-center space-x-2">
-              <p className="text-2xl font-bold text-amber-600">{credits}</p>
-              <p className="text-xs text-gray-500">개</p>
-              {isAdmin && (
-                <button
-                  onClick={() => setShowAdminManager(true)}
-                  className="w-8 h-8 bg-blue-500 hover:bg-blue-600 rounded-lg flex items-center justify-center transition-colors"
-                  title="관리자 크레딧 관리"
-                >
-                  <Settings className="w-4 h-4 text-white" />
-                </button>
-              )}
             </div>
+            {credits === 0 && (
+              <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-xs text-red-700">⚠️ 크레딧이 부족합니다. 팟캐스트를 생성할 수 없습니다.</p>
+              </div>
+            )}
           </div>
-          </div>
-          {credits === 0 && (
-            <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-xs text-red-700">⚠️ 크레딧이 부족합니다. 팟캐스트를 생성할 수 없습니다.</p>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Tooltip - 담백한 스타일 */}
         {showTooltip && credits <= 10 && credits > 0 && (
@@ -327,10 +340,18 @@ export default function PodcastGenerator() {
         <div className="flex items-center space-x-2 mb-4 px-2">
           <ListMusic className="w-5 h-5 text-gray-600" />
           <h3 className="text-lg font-bold text-gray-900">내 팟캐스트</h3>
-          <span className="text-sm text-gray-500">({podcasts.length})</span>
+          {!isLoadingPodcasts && (
+            <span className="text-sm text-gray-500">({podcasts.length})</span>
+          )}
         </div>
         
-        {podcasts.length === 0 ? (
+        {isLoadingPodcasts ? (
+          <div className="grid grid-cols-1 gap-3">
+            <PodcastCardSkeleton />
+            <PodcastCardSkeleton />
+            <PodcastCardSkeleton />
+          </div>
+        ) : podcasts.length === 0 ? (
           <div className="app-card p-8 text-center">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <Mic2 className="w-8 h-8 text-gray-400" />
@@ -424,8 +445,8 @@ export default function PodcastGenerator() {
 
             {/* 앨범 커버 */}
             <div className="p-8 flex justify-center flex-shrink-0">
-              <div className="w-64 h-64 bg-gradient-to-br from-brand to-brand-light rounded-2xl shadow-2xl flex items-center justify-center">
-                <Mic2 className="w-32 h-32 text-white" />
+              <div className="w-32 h-32 bg-gradient-to-br from-brand to-brand-light rounded-2xl shadow-2xl flex items-center justify-center">
+                <Mic2 className="w-16 h-16 text-white" />
               </div>
             </div>
 

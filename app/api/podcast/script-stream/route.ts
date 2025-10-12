@@ -5,6 +5,9 @@ import { getVideoTranscript, combineTranscripts } from '@/backend/lib/subtitle'
 import { generatePodcastScript } from '@/backend/lib/gemini'
 import { prisma } from '@/backend/lib/prisma'
 
+// Vercel Pro plan max: 300s (5 minutes) for regular API endpoints
+export const maxDuration = 300
+
 export async function POST(request: NextRequest) {
   console.log('📡 Streaming subtitle extraction and script generation API started...')
   

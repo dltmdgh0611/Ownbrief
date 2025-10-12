@@ -519,8 +519,8 @@ const StepByStepModal = memo(function StepByStepModal({ isOpen, onClose, onCompl
 
           {currentStep === 4 && audioUrl && (
             <div className="text-center py-8">
-              <div className="w-20 h-20 bg-gradient-to-br from-brand-light to-brand rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
-                <Mic className="h-10 w-10 text-white" />
+              <div className="w-10 h-10 bg-gradient-to-br from-brand-light to-brand rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl">
+                <Mic className="h-5 w-5 text-white" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">🎉 음성 생성 완료!</h3>
               <p className="text-sm text-gray-600 mb-6 px-4">
@@ -546,8 +546,8 @@ const StepByStepModal = memo(function StepByStepModal({ isOpen, onClose, onCompl
 
           {currentStep === 3 && !audioUrl && !isLoading && (
             <div className="text-center py-8">
-              <div className="w-20 h-20 bg-gradient-to-br from-brand to-brand-light rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
-                <Mic className="h-10 w-10 text-white" />
+              <div className="w-10 h-10 bg-gradient-to-br from-brand to-brand-light rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl">
+                <Mic className="h-5 w-5 text-white" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">음성 생성 준비 완료</h3>
               <p className="text-sm text-gray-600 mb-8 px-4">
