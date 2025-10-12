@@ -394,6 +394,15 @@ export default function SettingsPage() {
             )}
           </button>
 
+          {/* 로그아웃 */}
+          <button
+            onClick={() => signOut({ callbackUrl: '/welcome' })}
+            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
+          >
+            <LogOut className="h-5 w-5" />
+            <span>로그아웃</span>
+          </button>
+
           {/* 계정 관리 */}
           <div className="app-card p-5 border-2 border-red-200">
             <h2 className="text-lg font-bold text-gray-900 mb-2 flex items-center space-x-2">
