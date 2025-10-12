@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Settings, LogOut, Trash2, Save, Loader2, Home, ArrowLeft } from 'lucide-react'
+import { Settings, LogOut, Trash2, Save, Loader2, Home, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
 import { apiGet, apiPost, apiDelete } from '@/backend/lib/api-client'
 
 interface Playlist {
@@ -46,6 +46,9 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
+  
+  // 아코디언 상태
+  const [expandedSection, setExpandedSection] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -202,181 +205,229 @@ export default function SettingsPage() {
           </div>
         )}
 
-        <div className="space-y-6">
+        <div className="space-y-3">
           {/* 관심사 설정 */}
-          <div className="app-card p-5">
-            <h2 className="text-lg font-bold text-gray-900 mb-2">
-              관심사 설정
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              최대 5개까지 선택할 수 있습니다. ({interests.length}/5 선택됨)
-            </p>
+          <div className="app-card overflow-hidden">
+            <button
+              onClick={() => setExpandedSection(expandedSection === 'interests' ? null : 'interests')}
+              className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center space-x-3">
+                <h2 className="text-lg font-bold text-gray-900">관심사 설정</h2>
+                <span className="text-sm text-gray-500">({interests.length}/5)</span>
+              </div>
+              {expandedSection === 'interests' ? (
+                <ChevronUp className="h-5 w-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-400" />
+              )}
+            </button>
+            
+            {expandedSection === 'interests' && (
+              <div className="px-5 pb-5 border-t">
+                <p className="text-sm text-gray-600 mb-4 mt-4">
+                  최대 5개까지 선택할 수 있습니다.
+                </p>
 
-            <div className="flex flex-wrap gap-2">
-              {AVAILABLE_INTERESTS.map((interest) => {
-                const isSelected = interests.includes(interest)
-                return (
-                  <button
-                    key={interest}
-                    onClick={() => handleInterestToggle(interest)}
-                    disabled={!isSelected && interests.length >= 5}
-                    className={`
-                      px-4 py-2.5 rounded-xl font-medium text-sm
-                      transition-all duration-200
-                      ${isSelected
-                        ? 'bg-gradient-to-r from-brand to-brand-light text-white shadow-md scale-105'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }
-                      ${!isSelected && interests.length >= 5
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'active:scale-95'
-                      }
-                    `}
-                  >
-                    {interest}
-                  </button>
-                )
-              })}
-            </div>
+                <div className="flex flex-wrap gap-2">
+                  {AVAILABLE_INTERESTS.map((interest) => {
+                    const isSelected = interests.includes(interest)
+                    return (
+                      <button
+                        key={interest}
+                        onClick={() => handleInterestToggle(interest)}
+                        disabled={!isSelected && interests.length >= 5}
+                        className={`
+                          px-4 py-2.5 rounded-xl font-medium text-sm
+                          transition-all duration-200
+                          ${isSelected
+                            ? 'bg-gradient-to-r from-brand to-brand-light text-white shadow-md scale-105'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }
+                          ${!isSelected && interests.length >= 5
+                            ? 'opacity-50 cursor-not-allowed'
+                            : 'active:scale-95'
+                          }
+                        `}
+                      >
+                        {interest}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 플레이리스트 설정 */}
-          <div className="app-card p-5">
-            <h2 className="text-lg font-bold text-gray-900 mb-2">
-              플레이리스트 선택
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              팟캐스트 생성에 사용할 플레이리스트를 선택하세요.
-            </p>
+          <div className="app-card overflow-hidden">
+            <button
+              onClick={() => setExpandedSection(expandedSection === 'playlists' ? null : 'playlists')}
+              className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center space-x-3">
+                <h2 className="text-lg font-bold text-gray-900">플레이리스트 선택</h2>
+                <span className="text-sm text-gray-500">({selectedPlaylists.length}개)</span>
+              </div>
+              {expandedSection === 'playlists' ? (
+                <ChevronUp className="h-5 w-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-400" />
+              )}
+            </button>
             
-            <div className="flex items-center justify-between mb-4 pb-4 border-b">
-              <div className="text-sm">
-                <span className="text-gray-600">선택된 플레이리스트</span>
-                <span className="ml-2 font-bold text-brand">{selectedPlaylists.length}개</span>
-              </div>
-              
-              <button
-                onClick={fetchPlaylists}
-                disabled={isLoading}
-                className="flex items-center space-x-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 font-medium"
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Settings className="h-4 w-4" />
-                )}
-                <span>새로고침</span>
-              </button>
-            </div>
-
-            {isLoading ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Loader2 className="h-8 w-8 animate-spin text-brand" />
+            {expandedSection === 'playlists' && (
+              <div className="px-5 pb-5 border-t">
+                <p className="text-sm text-gray-600 mb-4 mt-4">
+                  팟캐스트 생성에 사용할 플레이리스트를 선택하세요.
+                </p>
+                
+                <div className="flex items-center justify-between mb-4 pb-4 border-b">
+                  <div className="text-sm">
+                    <span className="text-gray-600">선택됨</span>
+                    <span className="ml-2 font-bold text-brand">{selectedPlaylists.length}개</span>
+                  </div>
+                  
+                  <button
+                    onClick={fetchPlaylists}
+                    disabled={isLoading}
+                    className="flex items-center space-x-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 font-medium"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Settings className="h-4 w-4" />
+                    )}
+                    <span>새로고침</span>
+                  </button>
                 </div>
-                <p className="text-sm text-gray-600">플레이리스트를 가져오는 중...</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {playlists.length === 0 ? (
+
+                {isLoading ? (
                   <div className="text-center py-8">
-                    <p className="text-sm text-gray-500">
-                      플레이리스트가 없습니다.
-                      <br />
-                      YouTube에서 플레이리스트를 먼저 생성해주세요.
-                    </p>
+                    <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Loader2 className="h-8 w-8 animate-spin text-brand" />
+                    </div>
+                    <p className="text-sm text-gray-600">플레이리스트를 가져오는 중...</p>
                   </div>
                 ) : (
-                  playlists.map((playlist) => (
-                    <div key={playlist.id} className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200 hover:border-brand transition-colors">
-                      <label htmlFor={playlist.id} className="flex items-start space-x-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          id={playlist.id}
-                          checked={selectedPlaylists.includes(playlist.id)}
-                          onChange={() => handlePlaylistToggle(playlist.id)}
-                          className="mt-1 h-5 w-5 text-brand focus:ring-brand border-gray-300 rounded"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-gray-900 mb-1">{playlist.title}</div>
-                          {playlist.description && (
-                            <div className="text-sm text-gray-600 mb-2 line-clamp-2">{playlist.description}</div>
-                          )}
-                          {playlist.itemCount !== undefined && (
-                            <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full inline-block">
-                              📹 {playlist.itemCount}개 동영상
+                  <div className="space-y-3">
+                    {playlists.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-sm text-gray-500">
+                          플레이리스트가 없습니다.
+                          <br />
+                          YouTube에서 플레이리스트를 먼저 생성해주세요.
+                        </p>
+                      </div>
+                    ) : (
+                      playlists.map((playlist) => (
+                        <div key={playlist.id} className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200 hover:border-brand transition-colors">
+                          <label htmlFor={playlist.id} className="flex items-start space-x-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              id={playlist.id}
+                              checked={selectedPlaylists.includes(playlist.id)}
+                              onChange={() => handlePlaylistToggle(playlist.id)}
+                              className="mt-1 h-5 w-5 text-brand focus:ring-brand border-gray-300 rounded"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-gray-900 mb-1">{playlist.title}</div>
+                              {playlist.description && (
+                                <div className="text-sm text-gray-600 mb-2 line-clamp-2">{playlist.description}</div>
+                              )}
+                              {playlist.itemCount !== undefined && (
+                                <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full inline-block">
+                                  📹 {playlist.itemCount}개 동영상
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </label>
                         </div>
-                      </label>
-                    </div>
-                  ))
+                      ))
+                    )}
+                  </div>
                 )}
               </div>
             )}
           </div>
 
           {/* 팟캐스트 배달 시간 설정 */}
-          <div className="app-card p-5">
-            <h2 className="text-lg font-bold text-gray-900 mb-2">
-              팟캐스트 배달 시간
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              매일 자동으로 팟캐스트를 받을 시간을 설정하세요.
-            </p>
-            
-            <div className="flex items-center space-x-3">
-              <select
-                value={deliveryTimeHour}
-                onChange={(e) => setDeliveryTimeHour(Number(e.target.value))}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-transparent font-medium"
-              >
-                {Array.from({ length: 24 }, (_, i) => (
-                  <option key={i} value={i}>
-                    {i}시
-                  </option>
-                ))}
-              </select>
-              <select
-                value={deliveryTimeMinute}
-                onChange={(e) => setDeliveryTimeMinute(Number(e.target.value))}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-transparent font-medium"
-              >
-                <option value={0}>0분</option>
-                <option value={15}>15분</option>
-                <option value={30}>30분</option>
-                <option value={45}>45분</option>
-              </select>
-            </div>
-            
-            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-xs text-blue-700">
-                💡 설정한 시간 1시간 전에 자동으로 팟캐스트가 생성되며, 설정한 시간에 공개됩니다.
-              </p>
-            </div>
-            
-            {/* 배달 시간 수정 제한 안내 */}
-            {!isAdmin && lastDeliveryTimeUpdate && (
-              <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-xs text-yellow-700">
-                  ⚠️ 배달 시간은 하루에 한 번만 변경할 수 있습니다.
-                  <br />
-                  마지막 수정: {new Date(lastDeliveryTimeUpdate).toLocaleString('ko-KR', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </p>
+          <div className="app-card overflow-hidden">
+            <button
+              onClick={() => setExpandedSection(expandedSection === 'delivery' ? null : 'delivery')}
+              className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center space-x-3">
+                <h2 className="text-lg font-bold text-gray-900">팟캐스트 배달 시간</h2>
+                <span className="text-sm text-gray-500">{deliveryTimeHour}시 {deliveryTimeMinute}분</span>
               </div>
-            )}
+              {expandedSection === 'delivery' ? (
+                <ChevronUp className="h-5 w-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-400" />
+              )}
+            </button>
             
-            {isAdmin && (
-              <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                <p className="text-xs text-purple-700">
-                  👑 관리자는 배달 시간을 언제든지 변경할 수 있습니다.
+            {expandedSection === 'delivery' && (
+              <div className="px-5 pb-5 border-t">
+                <p className="text-sm text-gray-600 mb-4 mt-4">
+                  매일 자동으로 팟캐스트를 받을 시간을 설정하세요.
                 </p>
+                
+                <div className="flex items-center space-x-3">
+                  <select
+                    value={deliveryTimeHour}
+                    onChange={(e) => setDeliveryTimeHour(Number(e.target.value))}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-transparent font-medium"
+                  >
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <option key={i} value={i}>
+                        {i}시
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={deliveryTimeMinute}
+                    onChange={(e) => setDeliveryTimeMinute(Number(e.target.value))}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-transparent font-medium"
+                  >
+                    <option value={0}>0분</option>
+                    <option value={15}>15분</option>
+                    <option value={30}>30분</option>
+                    <option value={45}>45분</option>
+                  </select>
+                </div>
+                
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs text-blue-700">
+                    💡 설정한 시간 1시간 전에 자동으로 팟캐스트가 생성되며, 설정한 시간에 공개됩니다.
+                  </p>
+                </div>
+                
+                {/* 배달 시간 수정 제한 안내 */}
+                {!isAdmin && lastDeliveryTimeUpdate && (
+                  <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-xs text-yellow-700">
+                      ⚠️ 배달 시간은 하루에 한 번만 변경할 수 있습니다.
+                      <br />
+                      마지막 수정: {new Date(lastDeliveryTimeUpdate).toLocaleString('ko-KR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                )}
+                
+                {isAdmin && (
+                  <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                    <p className="text-xs text-purple-700">
+                      👑 관리자는 배달 시간을 언제든지 변경할 수 있습니다.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -402,35 +453,54 @@ export default function SettingsPage() {
 
           {/* 추천인 코드 */}
           {referralCode && (
-            <div className="app-card p-5 bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
-              <h2 className="text-lg font-bold text-gray-900 mb-2">
-                내 추천인 코드
-              </h2>
-              <p className="text-sm text-gray-600 mb-4">
-                친구를 초대하고 함께 10 크레딧을 받으세요!
-              </p>
-              
-              <div className="flex items-center space-x-3">
-                <div className="flex-1 bg-white px-4 py-3 rounded-xl font-mono text-xl font-bold text-purple-600 text-center border-2 border-purple-300">
-                  {referralCode}
+            <div className="app-card overflow-hidden">
+              <button
+                onClick={() => setExpandedSection(expandedSection === 'referral' ? null : 'referral')}
+                className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center space-x-3">
+                  <h2 className="text-lg font-bold text-gray-900">내 추천인 코드</h2>
+                  {referralCount > 0 && (
+                    <span className="text-sm text-gray-500">({referralCount}명 초대)</span>
+                  )}
                 </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(referralCode)
-                    setMessage('✅ 추천인 코드가 복사되었습니다!')
-                    setTimeout(() => setMessage(''), 3000)
-                  }}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center space-x-2"
-                >
-                  <span>복사</span>
-                </button>
-              </div>
+                {expandedSection === 'referral' ? (
+                  <ChevronUp className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                )}
+              </button>
               
-              {referralCount > 0 && (
-                <div className="mt-4 p-3 bg-white rounded-xl border-2 border-purple-200">
-                  <p className="text-sm text-purple-700 font-medium text-center">
-                    🎉 {referralCount}명의 친구가 당신의 코드를 사용했어요!
+              {expandedSection === 'referral' && (
+                <div className="px-5 pb-5 border-t bg-gradient-to-br from-orange-50 to-amber-50">
+                  <p className="text-sm text-gray-600 mb-4 mt-4">
+                    친구를 초대하고 함께 10 크레딧을 받으세요!
                   </p>
+                  
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-1 bg-white px-4 py-3 rounded-xl font-mono text-xl font-bold text-center border-2 shadow-sm" style={{ color: '#f7934c', borderColor: '#f7934c' }}>
+                      {referralCode}
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(referralCode)
+                        setMessage('✅ 추천인 코드가 복사되었습니다!')
+                        setTimeout(() => setMessage(''), 3000)
+                      }}
+                      className="text-white px-6 py-3 rounded-xl font-bold transition-all hover:opacity-90 active:scale-95"
+                      style={{ background: 'linear-gradient(135deg, #f7934c 0%, #ff8c42 100%)' }}
+                    >
+                      <span>복사</span>
+                    </button>
+                  </div>
+                  
+                  {referralCount > 0 && (
+                    <div className="mt-4 p-3 bg-white rounded-xl border-2 shadow-sm" style={{ borderColor: '#f7934c' }}>
+                      <p className="text-sm font-medium text-center" style={{ color: '#f7934c' }}>
+                        🎉 {referralCount}명의 친구가 당신의 코드를 사용했어요!
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -446,25 +516,39 @@ export default function SettingsPage() {
           </button>
 
           {/* 계정 관리 */}
-          <div className="app-card p-5 border-2 border-red-200">
-            <h2 className="text-lg font-bold text-gray-900 mb-2 flex items-center space-x-2">
-              <Trash2 className="h-5 w-5 text-red-600" />
-              <span>계정 관리</span>
-            </h2>
+          <div className="app-card overflow-hidden border-2 border-red-200">
+            <button
+              onClick={() => setExpandedSection(expandedSection === 'account' ? null : 'account')}
+              className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center space-x-2">
+                <Trash2 className="h-5 w-5 text-red-600" />
+                <h2 className="text-lg font-bold text-gray-900">계정 관리</h2>
+              </div>
+              {expandedSection === 'account' ? (
+                <ChevronUp className="h-5 w-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-400" />
+              )}
+            </button>
             
-            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4">
-              <h3 className="font-bold text-red-900 mb-2">⚠️ 계정 삭제</h3>
-              <p className="text-sm text-red-700 mb-4 leading-relaxed">
-                계정과 모든 데이터를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.
-              </p>
-              <button
-                onClick={handleDeleteAccount}
-                className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
-              >
-                <Trash2 className="h-5 w-5" />
-                <span>계정 삭제</span>
-              </button>
-            </div>
+            {expandedSection === 'account' && (
+              <div className="px-5 pb-5 border-t">
+                <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mt-4">
+                  <h3 className="font-bold text-red-900 mb-2">⚠️ 계정 삭제</h3>
+                  <p className="text-sm text-red-700 mb-4 leading-relaxed">
+                    계정과 모든 데이터를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+                  </p>
+                  <button
+                    onClick={handleDeleteAccount}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                    <span>계정 삭제</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

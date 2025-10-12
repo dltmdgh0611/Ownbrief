@@ -741,7 +741,7 @@ export default function OnboardingPage() {
             </button>
             
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'linear-gradient(135deg, #f7934c 0%, #ff8c42 100%)' }}>
                 <Sparkles className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
@@ -761,7 +761,15 @@ export default function OnboardingPage() {
               onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
               placeholder="추천인 코드 입력 (8자)"
               maxLength={8}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-center font-mono text-xl font-bold uppercase"
+              className="w-full px-4 py-3 border-2 rounded-xl focus:ring-2 text-center font-mono text-xl font-bold uppercase"
+              style={{ borderColor: '#f7934c', color: '#f7934c' }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#f7934c'
+                e.target.style.boxShadow = '0 0 0 3px rgba(247, 147, 76, 0.1)'
+              }}
+              onBlur={(e) => {
+                e.target.style.boxShadow = 'none'
+              }}
             />
             <p className="text-sm text-gray-500 mt-3 text-center">
               추천인과 함께 각각 10 크레딧을 받아요
@@ -780,7 +788,8 @@ export default function OnboardingPage() {
           <button
             onClick={() => setStep(7)}
             disabled={referralCode.length > 0 && referralCode.length !== 8}
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-200 active:scale-98 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-200 active:scale-98 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: 'linear-gradient(135deg, #f7934c 0%, #ff8c42 100%)' }}
           >
             <span>다음</span>
             <ChevronRight className="w-5 h-5" />
