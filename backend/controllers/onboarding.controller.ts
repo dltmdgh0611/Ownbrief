@@ -46,11 +46,11 @@ export async function completeOnboarding(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { interests, selectedPlaylists, deliveryTimeHour, deliveryTimeMinute } = body;
+    const { interests, selectedPlaylists, deliveryTimeHour, deliveryTimeMinute, referralCode } = body;
 
     const settings = await onboardingService.completeOnboarding(
       session.user.email,
-      { interests, selectedPlaylists, deliveryTimeHour, deliveryTimeMinute }
+      { interests, selectedPlaylists, deliveryTimeHour, deliveryTimeMinute, referralCode }
     );
 
     return NextResponse.json({

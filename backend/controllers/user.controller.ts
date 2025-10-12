@@ -28,7 +28,9 @@ export async function getUserSettings() {
       deliveryTimeHour: userSettings?.deliveryTimeHour ?? 8,
       deliveryTimeMinute: userSettings?.deliveryTimeMinute ?? 0,
       lastDeliveryTimeUpdate: userSettings?.lastDeliveryTimeUpdate || null,
-      isAdmin
+      isAdmin,
+      referralCode: userSettings?.referralCode || null,
+      referralCount: userSettings?.referralCount || 0
     }
 
     console.log('✅ 사용자 설정 가져오기 완료:', settings)

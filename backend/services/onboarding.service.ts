@@ -1,10 +1,12 @@
 import { prisma } from '../lib/prisma';
+import { generateUniqueReferralCode, validateReferralCode } from '../lib/referral';
 
 export interface OnboardingData {
   interests: string[];
   selectedPlaylists: string[];
   deliveryTimeHour?: number;
   deliveryTimeMinute?: number;
+  referralCode?: string;
 }
 
 /**
@@ -63,10 +65,10 @@ export async function completeOnboarding(
   userEmail: string,
   data: OnboardingData
 ) {
-  const { interests, selectedPlaylists, deliveryTimeHour = 8, deliveryTimeMinute = 0 } = data;
+  const { interests, selectedPlaylists, deliveryTimeHour = 8, deliveryTimeMinute = 0, referralCode } = data;
 
   console.log('💾 온보딩 완료 처리 시작 - userEmail:', userEmail);
-  console.log('📋 데이터:', { interests, selectedPlaylists, deliveryTimeHour, deliveryTimeMinute });
+  console.log('📋 데이터:', { interests, selectedPlaylists, deliveryTimeHour, deliveryTimeMinute, referralCode });
 
   // 먼저 사용자를 찾습니다
   const user = await prisma.user.findUnique({
@@ -86,6 +88,37 @@ export async function completeOnboarding(
     throw new Error('최소 1개 이상의 플레이리스트를 선택해주세요');
   }
 
+  // 추천인 코드 검증 및 처리
+  let initialCredits = 15;
+  let validatedReferralCode: string | undefined;
+
+  if (referralCode && referralCode.trim()) {
+    const validation = await validateReferralCode(referralCode.trim().toUpperCase(), userEmail);
+    
+    if (validation.isValid && validation.referrerSettings) {
+      // 유효한 추천인 코드 - 신규 사용자에게 10 크레딧 추가
+      initialCredits = 25; // 15 + 10
+      validatedReferralCode = referralCode.trim().toUpperCase();
+      
+      // 추천인에게 크레딧 지급 및 카운트 증가
+      await prisma.userSettings.update({
+        where: { id: validation.referrerSettings.id },
+        data: {
+          credits: { increment: 10 },
+          referralCount: { increment: 1 }
+        }
+      });
+      
+      console.log(`✅ 추천인 보상 지급 완료: ${validation.referrerSettings.user.email}`);
+    } else {
+      console.log(`⚠️ 추천인 코드 검증 실패: ${validation.error}`);
+      // 검증 실패해도 온보딩은 계속 진행
+    }
+  }
+
+  // 고유한 추천인 코드 생성
+  const userReferralCode = await generateUniqueReferralCode();
+
   // UserSettings가 없으면 생성, 있으면 업데이트
   const settings = await prisma.userSettings.upsert({
     where: { userId: user.id },
@@ -96,7 +129,9 @@ export async function completeOnboarding(
       onboardingCompleted: true,
       deliveryTimeHour,
       deliveryTimeMinute,
-      credits: 15,
+      credits: initialCredits,
+      referralCode: userReferralCode,
+      referredBy: validatedReferralCode,
     },
     update: {
       interests,
@@ -104,10 +139,17 @@ export async function completeOnboarding(
       onboardingCompleted: true,
       deliveryTimeHour,
       deliveryTimeMinute,
+      referralCode: userReferralCode,
+      referredBy: validatedReferralCode,
     },
   });
 
   console.log('✅ 온보딩 완료! onboardingCompleted = true');
+  console.log(`✅ 사용자 추천인 코드: ${userReferralCode}`);
+  if (validatedReferralCode) {
+    console.log(`✅ 추천인 코드 사용: ${validatedReferralCode} (크레딧 ${initialCredits}개)`);
+  }
+  
   return settings;
 }
 

@@ -21,6 +21,8 @@ interface UserSettings {
   deliveryTimeMinute: number
   lastDeliveryTimeUpdate?: string | null
   isAdmin?: boolean
+  referralCode?: string
+  referralCount?: number
 }
 
 const AVAILABLE_INTERESTS = [
@@ -39,6 +41,8 @@ export default function SettingsPage() {
   const [deliveryTimeMinute, setDeliveryTimeMinute] = useState(0)
   const [lastDeliveryTimeUpdate, setLastDeliveryTimeUpdate] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [referralCode, setReferralCode] = useState('')
+  const [referralCount, setReferralCount] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -79,6 +83,8 @@ export default function SettingsPage() {
         setDeliveryTimeMinute(data.settings.deliveryTimeMinute ?? 0)
         setLastDeliveryTimeUpdate(data.settings.lastDeliveryTimeUpdate || null)
         setIsAdmin(data.settings.isAdmin || false)
+        setReferralCode(data.settings.referralCode || '')
+        setReferralCount(data.settings.referralCount || 0)
       }
     } catch (error) {
       console.error('Error fetching user settings:', error)
@@ -393,6 +399,42 @@ export default function SettingsPage() {
               </>
             )}
           </button>
+
+          {/* 추천인 코드 */}
+          {referralCode && (
+            <div className="app-card p-5 bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
+              <h2 className="text-lg font-bold text-gray-900 mb-2">
+                내 추천인 코드
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                친구를 초대하고 함께 10 크레딧을 받으세요!
+              </p>
+              
+              <div className="flex items-center space-x-3">
+                <div className="flex-1 bg-white px-4 py-3 rounded-xl font-mono text-xl font-bold text-purple-600 text-center border-2 border-purple-300">
+                  {referralCode}
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(referralCode)
+                    setMessage('✅ 추천인 코드가 복사되었습니다!')
+                    setTimeout(() => setMessage(''), 3000)
+                  }}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center space-x-2"
+                >
+                  <span>복사</span>
+                </button>
+              </div>
+              
+              {referralCount > 0 && (
+                <div className="mt-4 p-3 bg-white rounded-xl border-2 border-purple-200">
+                  <p className="text-sm text-purple-700 font-medium text-center">
+                    🎉 {referralCount}명의 친구가 당신의 코드를 사용했어요!
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 로그아웃 */}
           <button

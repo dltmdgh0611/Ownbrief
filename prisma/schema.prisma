@@ -87,6 +87,9 @@ model UserSettings {
   lastDeliveryTimeUpdate DateTime? // 마지막 배달 시간 수정 시각
   credits              Int       @default(15) // 남은 크레딧 수
   isAdmin              Boolean   @default(false) // 관리자 권한
+  referralCode         String?   @unique // 사용자 고유 추천인 코드 (8자 영숫자)
+  referredBy           String?   // 추천인 코드 (누가 이 사용자를 초대했는지)
+  referralCount        Int       @default(0) // 추천한 사람 수
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 }

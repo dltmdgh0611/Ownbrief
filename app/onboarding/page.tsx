@@ -26,6 +26,7 @@ export default function OnboardingPage() {
   const [creatingPlaylist, setCreatingPlaylist] = useState(false);
   const [deliveryTimeHour, setDeliveryTimeHour] = useState(8);
   const [deliveryTimeMinute, setDeliveryTimeMinute] = useState(0);
+  const [referralCode, setReferralCode] = useState('');
 
   // 세션이 없으면 홈으로
   useEffect(() => {
@@ -99,8 +100,14 @@ export default function OnboardingPage() {
     } else if (step === 4) {
       setStep(2);
     } else if (step === 5) {
-      // 마지막 확인 단계에서 뒤로가기 - 플레이리스트 선택 단계로
+      // 시간 입력 단계에서 뒤로가기 - 플레이리스트 선택 단계로
       setStep(2);
+    } else if (step === 6) {
+      // 추천인 코드 입력 단계에서 뒤로가기 - 시간 입력 단계로
+      setStep(5);
+    } else if (step === 7) {
+      // 최종 확인 단계에서 뒤로가기 - 추천인 코드 입력 단계로
+      setStep(6);
     }
   };
 
@@ -169,7 +176,7 @@ export default function OnboardingPage() {
       alert('최소 1개 이상의 플레이리스트를 선택해주세요');
       return;
     }
-    // 마지막 확인 단계로 이동
+    // 시간 입력 단계로 이동
     setStep(5);
   };
 
@@ -186,6 +193,7 @@ export default function OnboardingPage() {
           selectedPlaylists,
           deliveryTimeHour,
           deliveryTimeMinute,
+          referralCode: referralCode || undefined,
         }),
       });
 
@@ -646,6 +654,7 @@ export default function OnboardingPage() {
   }
 
   // Step 5: 마지막 확인 단계
+  // Step 5: 시간 입력
   if (step === 5) {
     return (
       <div className="h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
@@ -660,107 +669,164 @@ export default function OnboardingPage() {
               <span>뒤로</span>
             </button>
             
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              설정이 완료되었습니다!
-            </h1>
-            <p className="text-sm text-gray-600">
-              선택하신 설정으로 맞춤 팟캐스트를 만들어드리겠습니다
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-brand to-brand-light rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                팟캐스트 받을 시간을 설정하세요
+              </h1>
+              <p className="text-sm text-gray-600">
+                매일 설정한 시간에 자동으로 팟캐스트가 준비됩니다
+              </p>
+            </div>
+          </div>
+
+          {/* 시간 선택 */}
+          <div className="app-card p-6 mb-6">
+            <div className="flex items-center space-x-3 mb-2">
+              <select
+                value={deliveryTimeHour}
+                onChange={(e) => setDeliveryTimeHour(Number(e.target.value))}
+                className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-brand text-lg"
+              >
+                {Array.from({ length: 24 }, (_, i) => (
+                  <option key={i} value={i}>
+                    {i}시
+                  </option>
+                ))}
+              </select>
+              <select
+                value={deliveryTimeMinute}
+                onChange={(e) => setDeliveryTimeMinute(Number(e.target.value))}
+                className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-brand text-lg"
+              >
+                <option value={0}>0분</option>
+                <option value={15}>15분</option>
+                <option value={30}>30분</option>
+                <option value={45}>45분</option>
+              </select>
+            </div>
+            <p className="text-sm text-gray-500 mt-3 text-center">
+              💡 선택한 시간 1시간 전에 팟캐스트가 자동 생성됩니다
             </p>
           </div>
 
-          {/* 선택된 설정 요약 */}
-          <div className="app-card p-6 mb-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">설정 요약</h2>
+          {/* 다음 버튼 */}
+          <button
+            onClick={() => setStep(6)}
+            className="w-full bg-gradient-to-r from-brand to-brand-light text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-200 active:scale-98 flex items-center justify-center space-x-2"
+          >
+            <span>다음</span>
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Step 6: 추천인 코드 입력
+  if (step === 6) {
+    return (
+      <div className="h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
+        <div className="flex-1 overflow-y-auto px-4 py-8 pb-24">
+          {/* 헤더 */}
+          <div className="mb-6">
+            <button
+              onClick={handleBack}
+              className="text-brand font-medium mb-4 flex items-center"
+            >
+              <ChevronRight className="w-5 h-5 rotate-180" />
+              <span>뒤로</span>
+            </button>
             
-            {/* 관심사 */}
-            <div className="mb-6">
-              <div className="flex items-center space-x-2 mb-3">
-                <Sparkles className="w-5 h-5 text-brand" />
-                <span className="font-medium text-gray-900">관심사</span>
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-8 h-8 text-white" />
               </div>
-              <div className="flex flex-wrap gap-2">
-                {interests.map((interest) => (
-                  <span
-                    key={interest}
-                    className="px-3 py-1 bg-gradient-to-r from-brand to-brand-light text-white rounded-lg text-sm font-medium"
-                  >
-                    {interest}
-                  </span>
-                ))}
-              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                추천인 코드가 있으신가요?
+              </h1>
+              <p className="text-sm text-gray-600">
+                추천인 코드를 입력하면 10 크레딧을 받을 수 있어요!
+              </p>
             </div>
+          </div>
 
-            {/* 플레이리스트 */}
-            <div className="mb-6">
-              <div className="flex items-center space-x-2 mb-3">
-                <List className="w-5 h-5 text-brand" />
-                <span className="font-medium text-gray-900">플레이리스트</span>
-              </div>
-              <div className="space-y-2">
-                {selectedPlaylists.map((playlistId) => {
-                  const playlist = playlists.find(p => p.id === playlistId);
-                  return (
-                    <div key={playlistId} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-brand-light flex items-center justify-center">
-                        <Play className="w-4 h-4 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">
-                          {playlist?.title || `플레이리스트 ${playlistId}`}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {playlist?.itemCount || 0}개의 동영상
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+          {/* 추천인 코드 입력 */}
+          <div className="app-card p-6 mb-6">
+            <input
+              type="text"
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+              placeholder="추천인 코드 입력 (8자)"
+              maxLength={8}
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-center font-mono text-xl font-bold uppercase"
+            />
+            <p className="text-sm text-gray-500 mt-3 text-center">
+              추천인과 함께 각각 10 크레딧을 받아요
+            </p>
+          </div>
 
-            {/* 팟캐스트 배달 시간 */}
-            <div>
-              <div className="flex items-center space-x-2 mb-3">
-                <Clock className="w-5 h-5 text-brand" />
-                <span className="font-medium text-gray-900">매일 팟캐스트 받을 시간</span>
+          {/* 건너뛰기 버튼 */}
+          <button
+            onClick={() => setStep(7)}
+            className="w-full bg-gray-100 text-gray-700 py-4 rounded-xl font-bold text-lg hover:bg-gray-200 transition-all duration-200 mb-3"
+          >
+            건너뛰기
+          </button>
+
+          {/* 다음 버튼 */}
+          <button
+            onClick={() => setStep(7)}
+            disabled={referralCode.length > 0 && referralCode.length !== 8}
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-200 active:scale-98 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span>다음</span>
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Step 7: 최종 확인
+  if (step === 7) {
+    return (
+      <div className="h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
+        <div className="flex-1 overflow-y-auto px-4 py-8 pb-24">
+          {/* 헤더 */}
+          <div className="mb-6">
+            <button
+              onClick={handleBack}
+              disabled={loading}
+              className="text-brand font-medium mb-4 flex items-center disabled:opacity-50"
+            >
+              <ChevronRight className="w-5 h-5 rotate-180" />
+              <span>뒤로</span>
+            </button>
+            
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 bg-gradient-to-br from-brand to-brand-light rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+                <Sparkles className="w-10 h-10 text-white" />
               </div>
-              <div className="flex items-center space-x-3">
-                <select
-                  value={deliveryTimeHour}
-                  onChange={(e) => setDeliveryTimeHour(Number(e.target.value))}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-transparent"
-                >
-                  {Array.from({ length: 24 }, (_, i) => (
-                    <option key={i} value={i}>
-                      {i}시
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={deliveryTimeMinute}
-                  onChange={(e) => setDeliveryTimeMinute(Number(e.target.value))}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-transparent"
-                >
-                  <option value={0}>0분</option>
-                  <option value={15}>15분</option>
-                  <option value={30}>30분</option>
-                  <option value={45}>45분</option>
-                </select>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                💡 설정한 시간에 맞춰 자동으로 팟캐스트가 준비됩니다
+              <h1 className="text-3xl font-bold text-gray-900 mb-3">
+                🎉 모든 준비가 완료되었습니다!
+              </h1>
+              <p className="text-lg text-gray-600">
+                이제 당신만의 AI 팟캐스트를 만들어보세요
               </p>
             </div>
           </div>
 
           {/* 안내 메시지 */}
-          <div className="app-card p-4 mb-6 bg-gradient-to-r from-green-50 to-green-100 border border-green-200">
+          <div className="app-card p-6 mb-6 bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-200">
             <div className="flex items-start space-x-3">
-              <Check className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+              <Check className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
               <div>
-                <h3 className="font-medium text-green-900 mb-1">준비 완료!</h3>
-                <p className="text-sm text-green-700">
-                  선택한 플레이리스트의 최신 동영상을 기반으로 매일 아침 맞춤 팟캐스트를 생성해드립니다.
+                <h3 className="font-bold text-green-900 mb-2">설정 완료!</h3>
+                <p className="text-sm text-green-700 leading-relaxed">
+                  선택한 플레이리스트의 최신 동영상을 기반으로 매일 맞춤 팟캐스트를 생성해드립니다.
                 </p>
               </div>
             </div>
