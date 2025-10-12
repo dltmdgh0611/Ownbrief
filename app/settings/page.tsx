@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { Settings, LogOut, Trash2, Save, Loader2, Home, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
+import { Settings, LogOut, Trash2, Loader2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
 import { apiGet, apiPost, apiDelete } from '@/backend/lib/api-client'
 
 interface Playlist {
@@ -104,13 +103,7 @@ export default function SettingsPage() {
         deliveryTimeMinute
       })
       
-      if (data) {
-        setMessage('✅ 설정이 저장되었습니다! 이제 팟캐스트를 생성할 수 있습니다.')
-        // 저장 후 잠시 후에 메시지 초기화
-        setTimeout(() => {
-          setMessage('')
-        }, 3000)
-      } else if (error) {
+      if (error) {
         setMessage(`❌ 설정 저장 실패: ${error}`)
       }
     } catch (error) {
@@ -119,6 +112,11 @@ export default function SettingsPage() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handleBackToHome = async () => {
+    await saveSettings()
+    router.push('/')
   }
 
   const handlePlaylistToggle = (playlistId: string) => {
@@ -176,12 +174,13 @@ export default function SettingsPage() {
       {/* 헤더 */}
       <div className="bg-gradient-to-r from-brand to-brand-light text-white p-4 flex-shrink-0 shadow-lg">
         <div className="flex items-center space-x-3">
-          <Link
-            href="/"
-            className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors backdrop-blur-sm"
+          <button
+            onClick={handleBackToHome}
+            disabled={isSaving}
+            className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors backdrop-blur-sm disabled:opacity-50"
           >
             <ArrowLeft className="h-5 w-5" />
-          </Link>
+          </button>
           <div className="flex items-center space-x-2">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
               <Settings className="h-6 w-6" />
@@ -432,25 +431,6 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* 저장 버튼 */}
-          <button
-            onClick={saveSettings}
-            disabled={isSaving}
-            className="w-full bg-gradient-to-r from-brand to-brand-light hover:from-brand-dark hover:to-brand disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>저장 중...</span>
-              </>
-            ) : (
-              <>
-                <Save className="h-5 w-5" />
-                <span>설정 저장하기</span>
-              </>
-            )}
-          </button>
-
           {/* 추천인 코드 */}
           {referralCode && (
             <div className="app-card overflow-hidden">
@@ -506,25 +486,13 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* 로그아웃 */}
-          <button
-            onClick={() => signOut({ callbackUrl: '/welcome' })}
-            className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
-          >
-            <LogOut className="h-5 w-5" />
-            <span>로그아웃</span>
-          </button>
-
           {/* 계정 관리 */}
-          <div className="app-card overflow-hidden border-2 border-red-200">
+          <div className="app-card overflow-hidden">
             <button
               onClick={() => setExpandedSection(expandedSection === 'account' ? null : 'account')}
               className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
-              <div className="flex items-center space-x-2">
-                <Trash2 className="h-5 w-5 text-red-600" />
-                <h2 className="text-lg font-bold text-gray-900">계정 관리</h2>
-              </div>
+              <h2 className="text-lg font-bold text-gray-900">계정 관리</h2>
               {expandedSection === 'account' ? (
                 <ChevronUp className="h-5 w-5 text-gray-400" />
               ) : (
@@ -533,8 +501,18 @@ export default function SettingsPage() {
             </button>
             
             {expandedSection === 'account' && (
-              <div className="px-5 pb-5 border-t">
-                <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mt-4">
+              <div className="px-5 pb-5 border-t space-y-3 pt-4">
+                {/* 로그아웃 */}
+                <button
+                  onClick={() => signOut({ callbackUrl: '/welcome' })}
+                  className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
+                >
+                  <LogOut className="h-5 w-5" />
+                  <span>로그아웃</span>
+                </button>
+
+                {/* 계정 삭제 */}
+                <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4">
                   <h3 className="font-bold text-red-900 mb-2">⚠️ 계정 삭제</h3>
                   <p className="text-sm text-red-700 mb-4 leading-relaxed">
                     계정과 모든 데이터를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.
