@@ -71,19 +71,32 @@ export async function saveUserSettings(
       deliveryTimeMinute
     })
 
+    // 기본 설정 저장 (플레이리스트, 관심사)
     const userSettings = await UserService.saveUserSettings(
       session.user.email,
       selectedPlaylists,
       interests,
-      deliveryTimeHour,
-      deliveryTimeMinute
+      undefined, // deliveryTime은 별도로 처리
+      undefined
     )
 
+    // 배달 시간 변경이 있는 경우 별도 처리 (하루 1회 제한 체크)
+    if (deliveryTimeHour !== undefined && deliveryTimeMinute !== undefined) {
+      await UserService.updateDeliveryTime(
+        session.user.email,
+        deliveryTimeHour,
+        deliveryTimeMinute
+      )
+    }
+
+    // 최신 설정 다시 가져오기
+    const updatedSettings = await UserService.getUserSettings(session.user.email)
+
     const settings = {
-      selectedPlaylists: userSettings.selectedPlaylists,
-      interests: userSettings.interests || [],
-      deliveryTimeHour: userSettings.deliveryTimeHour ?? 8,
-      deliveryTimeMinute: userSettings.deliveryTimeMinute ?? 0
+      selectedPlaylists: updatedSettings?.selectedPlaylists || [],
+      interests: updatedSettings?.interests || [],
+      deliveryTimeHour: updatedSettings?.deliveryTimeHour ?? 8,
+      deliveryTimeMinute: updatedSettings?.deliveryTimeMinute ?? 0
     }
 
     console.log('✅ 사용자 설정 저장 완료:', settings)
@@ -94,10 +107,10 @@ export async function saveUserSettings(
       settings 
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ 사용자 설정 저장 오류:', error)
     return NextResponse.json(
-      { error: '사용자 설정 저장에 실패했습니다.' },
+      { error: error.message || '사용자 설정 저장에 실패했습니다.' },
       { status: 500 }
     )
   }
