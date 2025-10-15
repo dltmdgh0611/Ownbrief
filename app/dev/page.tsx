@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Activity, CheckCircle, XCircle, AlertCircle, RefreshCw, Home, Database, Youtube, Mic2, Brain, Play, Loader2, Zap } from 'lucide-react'
+import { Activity, CheckCircle, XCircle, AlertCircle, RefreshCw, Home, Database, Youtube, Mic2, Brain, Play, Loader2, Zap, Link2, Music } from 'lucide-react'
+import ConnectorsDemo from '@/frontend/components/ConnectorsDemo'
+import LyricsPlayerDemo from '@/frontend/components/LyricsPlayerDemo'
 
 interface HealthStatus {
   service: string
@@ -47,6 +49,8 @@ export default function DevModePage() {
   const [testResults, setTestResults] = useState<{[key: string]: TestResult}>({})
   const [isTestingAutoGenerate, setIsTestingAutoGenerate] = useState(false)
   const [autoGenerateLogs, setAutoGenerateLogs] = useState<string[]>([])
+  const [showConnectorsDemo, setShowConnectorsDemo] = useState(false)
+  const [showLyricsPlayerDemo, setShowLyricsPlayerDemo] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -452,6 +456,36 @@ export default function DevModePage() {
           </div>
         </div>
 
+        {/* Demo UI Section */}
+        <div className="mt-6 bg-gradient-to-br from-indigo-900 to-purple-900 rounded-lg shadow-lg p-6 border-2 border-indigo-500">
+          <h2 className="text-2xl font-bold mb-4 flex items-center space-x-2">
+            <Music className="h-8 w-8 text-indigo-400" />
+            <span>🎨 Demo UI 보기</span>
+          </h2>
+          
+          <p className="text-gray-200 mb-6">
+            보여주기용 UI 컴포넌트를 확인해보세요. 실제 기능은 구현되어 있지 않습니다.
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              onClick={() => setShowConnectorsDemo(true)}
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-4 rounded-lg font-bold text-lg flex items-center justify-center space-x-3 shadow-xl transform transition-all hover:scale-105"
+            >
+              <Link2 className="h-6 w-6" />
+              <span>앱 연결 UI</span>
+            </button>
+            
+            <button
+              onClick={() => setShowLyricsPlayerDemo(true)}
+              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-4 rounded-lg font-bold text-lg flex items-center justify-center space-x-3 shadow-xl transform transition-all hover:scale-105"
+            >
+              <Music className="h-6 w-6" />
+              <span>팟캐스트 플레이어 UI</span>
+            </button>
+          </div>
+        </div>
+
         {/* Auto-Generate Test */}
         <div className="mt-6 bg-gradient-to-br from-purple-900 to-blue-900 rounded-lg shadow-lg p-6 border-2 border-purple-500">
           <h2 className="text-2xl font-bold mb-4 flex items-center space-x-2">
@@ -852,6 +886,16 @@ export default function DevModePage() {
           </div>
         </div>
       </div>
+
+      {/* Demo 모달들 */}
+      <ConnectorsDemo 
+        isOpen={showConnectorsDemo} 
+        onClose={() => setShowConnectorsDemo(false)} 
+      />
+      <LyricsPlayerDemo 
+        isOpen={showLyricsPlayerDemo} 
+        onClose={() => setShowLyricsPlayerDemo(false)} 
+      />
     </div>
   )
 }
