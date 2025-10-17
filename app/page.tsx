@@ -4,8 +4,8 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import Header from '@/frontend/components/Header'
-import PodcastGenerator from '@/frontend/components/PodcastGenerator'
-import TokenStatusBanner from '@/frontend/components/TokenStatusBanner'
+import BriefingPlayer from '@/frontend/components/BriefingPlayer'
+import ConnectedServices from '@/frontend/components/ConnectedServices'
 import { useOnboarding } from '@/frontend/hooks/useOnboarding'
 
 export default function Home() {
@@ -69,15 +69,15 @@ export default function Home() {
       {/* 상단 고정 헤더 */}
       <div className="flex-shrink-0">
         <Header />
-        <TokenStatusBanner />
       </div>
       
-      {/* 스크롤 가능한 메인 콘텐츠 */}
+      {/* 메인 콘텐츠 */}
       <main className="flex-1 overflow-y-auto">
-        <div className="pb-6">
-          <PodcastGenerator />
-        </div>
+        <BriefingPlayer userEmail={session.user.email!} />
       </main>
+
+      {/* 하단 연결된 서비스 */}
+      <ConnectedServices />
     </div>
   )
 }

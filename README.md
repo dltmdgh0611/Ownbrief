@@ -205,6 +205,19 @@ yarn db:reset
 
 ## 📚 주요 문서
 
+### 프로젝트 문서
+- [docs/architecture.md](./docs/architecture.md) - 시스템 아키텍처 및 데이터 흐름
+- [docs/database-schema.md](./docs/database-schema.md) - 데이터베이스 스키마 명세
+- [docs/source-files.md](./docs/source-files.md) - 모든 소스 파일 상세 설명
+- [docs/openapi.yaml](./docs/openapi.yaml) - OpenAPI 3.0 API 명세
+
+### API 문서
+- **Swagger UI**: [http://localhost:3000/dev/api-docs](http://localhost:3000/dev/api-docs) (개발 서버 실행 시)
+- 29개의 API 엔드포인트 문서화
+- 요청/응답 스키마 및 예제 포함
+- 직접 API 테스트 가능
+
+### 설정 가이드
 - [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) - 프로젝트 구조 상세 설명
 - [GEMINI_QUOTA_FIX_STEP_BY_STEP.md](./GEMINI_QUOTA_FIX_STEP_BY_STEP.md) - 🔥 Gemini 429 에러 해결 (스크린샷 가이드)
 - [GEMINI_429_QUOTA_FIX.md](./GEMINI_429_QUOTA_FIX.md) - Gemini 할당량 초과 상세 가이드

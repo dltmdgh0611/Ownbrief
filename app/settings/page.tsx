@@ -3,530 +3,275 @@
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Settings, LogOut, Trash2, Loader2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
-import { apiGet, apiPost, apiDelete } from '@/backend/lib/api-client'
-import { PlaylistItemSkeleton } from '@/frontend/components/PlaylistSkeleton'
+import { Settings, LogOut, Trash2, Loader2, ArrowLeft, RefreshCw, User, Sparkles } from 'lucide-react'
 
-interface Playlist {
-  id: string
-  title: string
-  description: string
-  itemCount?: number
-}
-
-interface UserSettings {
-  selectedPlaylists: string[]
+interface UserPersona {
+  workStyle: string
   interests: string[]
-  deliveryTimeHour: number
-  deliveryTimeMinute: number
-  lastDeliveryTimeUpdate?: string | null
-  isAdmin?: boolean
-  referralCode?: string
-  referralCount?: number
+  meetingFrequency: string
+  communicationStyle: string
+  primaryProjects: string[]
+  preferredTime: string
+  confirmed: boolean
 }
-
-const AVAILABLE_INTERESTS = [
-  'AI', 'Technology', 'Startup', 'Business', 'Marketing',
-  'Design', 'Programming', 'Science', 'Health', 'Finance',
-  'Education', 'Entertainment', 'Sports', 'Music', 'Art'
-]
 
 export default function SettingsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [playlists, setPlaylists] = useState<Playlist[]>([])
-  const [selectedPlaylists, setSelectedPlaylists] = useState<string[]>([])
-  const [interests, setInterests] = useState<string[]>([])
-  const [deliveryTimeHour, setDeliveryTimeHour] = useState(8)
-  const [deliveryTimeMinute, setDeliveryTimeMinute] = useState(0)
-  const [lastDeliveryTimeUpdate, setLastDeliveryTimeUpdate] = useState<string | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [referralCode, setReferralCode] = useState('')
-  const [referralCount, setReferralCount] = useState(0)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
+  const [persona, setPersona] = useState<UserPersona | null>(null)
+  const [isLoadingPersona, setIsLoadingPersona] = useState(false)
+  const [isRegeneratingPersona, setIsRegeneratingPersona] = useState(false)
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false)
   const [message, setMessage] = useState('')
-  
-  // 아코디언 상태
-  const [expandedSection, setExpandedSection] = useState<string | null>(null)
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      fetchPlaylists()
-      fetchUserSettings()
+    if (status === 'unauthenticated') {
+      router.push('/welcome')
     }
-  }, [status])
+  }, [status, router])
 
-  const fetchPlaylists = async () => {
-    setIsLoading(true)
+  useEffect(() => {
+    if (session) {
+      loadPersona()
+    }
+  }, [session])
+
+  const loadPersona = async () => {
     try {
-      const { data, error } = await apiGet<{ playlists: Playlist[] }>('/api/youtube/playlists')
-      
-      if (data) {
-        setPlaylists(data.playlists || [])
-      } else if (error) {
-        setMessage(`플레이리스트 가져오기 실패: ${error}`)
+      setIsLoadingPersona(true)
+      const response = await fetch('/api/persona')
+      if (response.ok) {
+        const data = await response.json()
+        setPersona(data.persona)
       }
     } catch (error) {
-      console.error('Error fetching playlists:', error)
-      setMessage('플레이리스트를 가져오는데 실패했습니다.')
+      console.error('Failed to load persona:', error)
     } finally {
-      setIsLoading(false)
+      setIsLoadingPersona(false)
     }
   }
 
-  const fetchUserSettings = async () => {
-    try {
-      const { data } = await apiGet<{ settings: UserSettings }>('/api/user/settings')
-      
-      if (data?.settings) {
-        setSelectedPlaylists(data.settings.selectedPlaylists || [])
-        setInterests(data.settings.interests || [])
-        setDeliveryTimeHour(data.settings.deliveryTimeHour ?? 8)
-        setDeliveryTimeMinute(data.settings.deliveryTimeMinute ?? 0)
-        setLastDeliveryTimeUpdate(data.settings.lastDeliveryTimeUpdate || null)
-        setIsAdmin(data.settings.isAdmin || false)
-        setReferralCode(data.settings.referralCode || '')
-        setReferralCount(data.settings.referralCount || 0)
-      }
-    } catch (error) {
-      console.error('Error fetching user settings:', error)
-    }
-  }
-
-  const saveSettings = async () => {
-    setIsSaving(true)
-    try {
-      const { data, error } = await apiPost('/api/user/settings', {
-        selectedPlaylists,
-        interests,
-        deliveryTimeHour,
-        deliveryTimeMinute
-      })
-      
-      if (error) {
-        setMessage(`❌ 설정 저장 실패: ${error}`)
-      }
-    } catch (error) {
-      console.error('Error saving settings:', error)
-      setMessage('설정 저장에 실패했습니다.')
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleBackToHome = async () => {
-    await saveSettings()
-    router.push('/')
-  }
-
-  const handlePlaylistToggle = (playlistId: string) => {
-    setSelectedPlaylists(prev => 
-      prev.includes(playlistId) 
-        ? prev.filter(id => id !== playlistId)
-        : [...prev, playlistId]
-    )
-  }
-
-  const handleInterestToggle = (interest: string) => {
-    if (interests.includes(interest)) {
-      setInterests(interests.filter(i => i !== interest))
-    } else {
-      if (interests.length < 5) {
-        setInterests([...interests, interest])
-      }
-    }
-  }
-
-  const handleDeleteAccount = async () => {
-    if (!confirm('정말로 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+  const handleRegeneratePersona = async () => {
+    if (!confirm('페르소나를 다시 생성하시겠습니까? 기존 페르소나는 삭제됩니다.')) {
       return
     }
 
     try {
-      const { data, error } = await apiDelete('/api/user/delete')
+      setIsRegeneratingPersona(true)
+      setMessage('')
 
-      if (data) {
-        await signOut({ callbackUrl: '/' })
-      } else if (error) {
-        setMessage(`계정 삭제 실패: ${error}`)
+      const response = await fetch('/api/persona/generate', {
+        method: 'POST',
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setPersona(data.persona)
+        setMessage('페르소나가 성공적으로 재생성되었습니다.')
+        setTimeout(() => setMessage(''), 3000)
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to regenerate persona')
+      }
+    } catch (error: any) {
+      console.error('Regenerate persona error:', error)
+      alert(`페르소나 재생성 실패: ${error.message}`)
+    } finally {
+      setIsRegeneratingPersona(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    if (confirm('로그아웃 하시겠습니까?')) {
+      await signOut({ callbackUrl: '/welcome' })
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (!confirm('⚠️ 정말로 계정을 삭제하시겠습니까?\n\n모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.')) {
+      return
+    }
+
+    const confirmText = prompt('계정 삭제를 확인하려면 "DELETE"를 입력하세요:')
+    if (confirmText !== 'DELETE') {
+      alert('계정 삭제가 취소되었습니다.')
+      return
+    }
+
+    try {
+      setIsDeletingAccount(true)
+      const response = await fetch('/api/user/delete', {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        alert('계정이 삭제되었습니다.')
+        await signOut({ callbackUrl: '/welcome' })
+      } else {
+        throw new Error('Failed to delete account')
       }
     } catch (error) {
-      console.error('Error deleting account:', error)
-      setMessage('계정 삭제에 실패했습니다.')
+      console.error('Delete account error:', error)
+      alert('계정 삭제에 실패했습니다.')
+    } finally {
+      setIsDeletingAccount(false)
     }
   }
 
   if (status === 'loading') {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-brand" />
+      <div className="h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-brand" />
       </div>
     )
   }
 
-  if (status === 'unauthenticated') {
-    router.push('/')
-    return null
-  }
-
   return (
-    <div className="h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* 헤더 */}
-      <div className="bg-gradient-to-r from-brand to-brand-light text-white p-4 flex-shrink-0 shadow-lg">
-        <div className="flex items-center space-x-3">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <button
-            onClick={handleBackToHome}
-            disabled={isSaving}
-            className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors backdrop-blur-sm disabled:opacity-50"
+            onClick={() => router.push('/')}
+            className="flex items-center space-x-2 text-gray-700 hover:text-brand transition-colors"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-medium">돌아가기</span>
           </button>
+          
           <div className="flex items-center space-x-2">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-              <Settings className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold">설정</h1>
-              <p className="text-xs text-white/80">앱 설정 관리</p>
-            </div>
+            <Settings className="w-5 h-5 text-brand" />
+            <h1 className="text-xl font-bold text-gray-900">설정</h1>
           </div>
+          
+          <div className="w-24"></div> {/* Spacer for centering */}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      {/* 메인 콘텐츠 */}
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* 성공 메시지 */}
         {message && (
-          <div className={`mb-4 p-4 rounded-xl font-medium text-sm ${
-            message.includes('실패') || message.includes('오류') 
-              ? 'bg-red-50 text-red-700 border-2 border-red-200' 
-              : 'bg-primary-50 text-brand border-2 border-primary-200'
-          }`}>
-            {message}
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-green-800 text-sm font-medium">{message}</p>
           </div>
         )}
 
-        <div className="space-y-3">
-          {/* 관심사 설정 */}
-          <div className="app-card overflow-hidden">
-            <button
-              onClick={() => setExpandedSection(expandedSection === 'interests' ? null : 'interests')}
-              className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center space-x-3">
-                <h2 className="text-lg font-bold text-gray-900">관심사 설정</h2>
-                <span className="text-sm text-gray-500">({interests.length}/5)</span>
-              </div>
-              {expandedSection === 'interests' ? (
-                <ChevronUp className="h-5 w-5 text-gray-400" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-gray-400" />
-              )}
-            </button>
-            
-            {expandedSection === 'interests' && (
-              <div className="px-5 pb-5 border-t">
-                <p className="text-sm text-gray-600 mb-4 mt-4">
-                  최대 5개까지 선택할 수 있습니다.
-                </p>
+        {/* 페르소나 섹션 */}
+        <div className="app-card p-6 mb-6">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-brand to-brand-light rounded-full flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">페르소나</h2>
+              <p className="text-sm text-gray-600">AI가 분석한 당신의 프로필</p>
+            </div>
+          </div>
 
+          {isLoadingPersona ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-brand" />
+            </div>
+          ) : persona ? (
+            <div className="space-y-4 mb-6">
+              {/* 업무 스타일 */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">업무 스타일</h3>
+                <p className="text-lg font-semibold text-gray-900">
+                  {persona.workStyle === 'morning-person' ? '아침형 인간 🌅' : 
+                   persona.workStyle === 'night-owl' ? '저녁형 인간 🌙' : 
+                   '유연한 스타일 ⚡'}
+                </p>
+              </div>
+
+              {/* 관심사 */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">관심사</h3>
                 <div className="flex flex-wrap gap-2">
-                  {AVAILABLE_INTERESTS.map((interest) => {
-                    const isSelected = interests.includes(interest)
-                    return (
-                      <button
-                        key={interest}
-                        onClick={() => handleInterestToggle(interest)}
-                        disabled={!isSelected && interests.length >= 5}
-                        className={`
-                          px-4 py-2.5 rounded-xl font-medium text-sm
-                          transition-all duration-200
-                          ${isSelected
-                            ? 'bg-gradient-to-r from-brand to-brand-light text-white shadow-md scale-105'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }
-                          ${!isSelected && interests.length >= 5
-                            ? 'opacity-50 cursor-not-allowed'
-                            : 'active:scale-95'
-                          }
-                        `}
-                      >
-                        {interest}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 플레이리스트 설정 */}
-          <div className="app-card overflow-hidden">
-            <button
-              onClick={() => setExpandedSection(expandedSection === 'playlists' ? null : 'playlists')}
-              className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center space-x-3">
-                <h2 className="text-lg font-bold text-gray-900">플레이리스트 선택</h2>
-                <span className="text-sm text-gray-500">({selectedPlaylists.length}개)</span>
-              </div>
-              {expandedSection === 'playlists' ? (
-                <ChevronUp className="h-5 w-5 text-gray-400" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-gray-400" />
-              )}
-            </button>
-            
-            {expandedSection === 'playlists' && (
-              <div className="px-5 pb-5 border-t">
-                <p className="text-sm text-gray-600 mb-4 mt-4">
-                  팟캐스트 생성에 사용할 플레이리스트를 선택하세요.
-                </p>
-                
-                <div className="flex items-center justify-between mb-4 pb-4 border-b">
-                  <div className="text-sm">
-                    <span className="text-gray-600">선택됨</span>
-                    <span className="ml-2 font-bold text-brand">{selectedPlaylists.length}개</span>
-                  </div>
-                  
-                  <button
-                    onClick={fetchPlaylists}
-                    disabled={isLoading}
-                    className="flex items-center space-x-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 font-medium"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Settings className="h-4 w-4" />
-                    )}
-                    <span>새로고침</span>
-                  </button>
-                </div>
-
-                {isLoading ? (
-                  <div className="space-y-3">
-                    <PlaylistItemSkeleton />
-                    <PlaylistItemSkeleton />
-                    <PlaylistItemSkeleton />
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {playlists.length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-sm text-gray-500">
-                          플레이리스트가 없습니다.
-                          <br />
-                          YouTube에서 플레이리스트를 먼저 생성해주세요.
-                        </p>
-                      </div>
-                    ) : (
-                      playlists.map((playlist) => (
-                        <div key={playlist.id} className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200 hover:border-brand transition-colors">
-                          <label htmlFor={playlist.id} className="flex items-start space-x-3 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              id={playlist.id}
-                              checked={selectedPlaylists.includes(playlist.id)}
-                              onChange={() => handlePlaylistToggle(playlist.id)}
-                              className="mt-1 h-5 w-5 text-brand focus:ring-brand border-gray-300 rounded"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="font-bold text-gray-900 mb-1">{playlist.title}</div>
-                              {playlist.description && (
-                                <div className="text-sm text-gray-600 mb-2 line-clamp-2">{playlist.description}</div>
-                              )}
-                              {playlist.itemCount !== undefined && (
-                                <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full inline-block">
-                                  📹 {playlist.itemCount}개 동영상
-                                </div>
-                              )}
-                            </div>
-                          </label>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 팟캐스트 배달 시간 설정 */}
-          <div className="app-card overflow-hidden">
-            <button
-              onClick={() => setExpandedSection(expandedSection === 'delivery' ? null : 'delivery')}
-              className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center space-x-3">
-                <h2 className="text-lg font-bold text-gray-900">팟캐스트 배달 시간</h2>
-                <span className="text-sm text-gray-500">{deliveryTimeHour}시 {deliveryTimeMinute}분</span>
-              </div>
-              {expandedSection === 'delivery' ? (
-                <ChevronUp className="h-5 w-5 text-gray-400" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-gray-400" />
-              )}
-            </button>
-            
-            {expandedSection === 'delivery' && (
-              <div className="px-5 pb-5 border-t">
-                <p className="text-sm text-gray-600 mb-4 mt-4">
-                  매일 자동으로 팟캐스트를 받을 시간을 설정하세요.
-                </p>
-                
-                <div className="flex items-center space-x-3">
-                  <select
-                    value={deliveryTimeHour}
-                    onChange={(e) => setDeliveryTimeHour(Number(e.target.value))}
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-transparent font-medium"
-                  >
-                    {Array.from({ length: 24 }, (_, i) => (
-                      <option key={i} value={i}>
-                        {i}시
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={deliveryTimeMinute}
-                    onChange={(e) => setDeliveryTimeMinute(Number(e.target.value))}
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand focus:border-transparent font-medium"
-                  >
-                    <option value={0}>0분</option>
-                    <option value={15}>15분</option>
-                    <option value={30}>30분</option>
-                    <option value={45}>45분</option>
-                  </select>
-                </div>
-                
-                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-xs text-blue-700">
-                    💡 설정한 시간 1시간 전에 자동으로 팟캐스트가 생성되며, 설정한 시간에 공개됩니다.
-                  </p>
-                </div>
-                
-                {/* 배달 시간 수정 제한 안내 */}
-                {!isAdmin && lastDeliveryTimeUpdate && (
-                  <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-xs text-yellow-700">
-                      ⚠️ 배달 시간은 하루에 한 번만 변경할 수 있습니다.
-                      <br />
-                      마지막 수정: {new Date(lastDeliveryTimeUpdate).toLocaleString('ko-KR', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
-                  </div>
-                )}
-                
-                {isAdmin && (
-                  <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                    <p className="text-xs text-purple-700">
-                      👑 관리자는 배달 시간을 언제든지 변경할 수 있습니다.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 추천인 코드 */}
-          {referralCode && (
-            <div className="app-card overflow-hidden">
-              <button
-                onClick={() => setExpandedSection(expandedSection === 'referral' ? null : 'referral')}
-                className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center space-x-3">
-                  <h2 className="text-lg font-bold text-gray-900">내 추천인 코드</h2>
-                  {referralCount > 0 && (
-                    <span className="text-sm text-gray-500">({referralCount}명 초대)</span>
-                  )}
-                </div>
-                {expandedSection === 'referral' ? (
-                  <ChevronUp className="h-5 w-5 text-gray-400" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-gray-400" />
-                )}
-              </button>
-              
-              {expandedSection === 'referral' && (
-                <div className="px-5 pb-5 border-t bg-gradient-to-br from-orange-50 to-amber-50">
-                  <p className="text-sm text-gray-600 mb-4 mt-4">
-                    친구를 초대하고 함께 10 크레딧을 받으세요!
-                  </p>
-                  
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-1 bg-white px-4 py-3 rounded-xl font-mono text-xl font-bold text-center border-2 shadow-sm" style={{ color: '#f7934c', borderColor: '#f7934c' }}>
-                      {referralCode}
-                    </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(referralCode)
-                        setMessage('✅ 추천인 코드가 복사되었습니다!')
-                        setTimeout(() => setMessage(''), 3000)
-                      }}
-                      className="text-white px-6 py-3 rounded-xl font-bold transition-all hover:opacity-90 active:scale-95"
-                      style={{ background: 'linear-gradient(135deg, #f7934c 0%, #ff8c42 100%)' }}
+                  {persona.interests?.map((interest, index) => (
+                    <span
+                      key={`${interest}-${index}`}
+                      className="px-3 py-1.5 bg-brand/10 text-brand rounded-lg text-sm font-medium"
                     >
-                      <span>복사</span>
-                    </button>
-                  </div>
-                  
-                  {referralCount > 0 && (
-                    <div className="mt-4 p-3 bg-white rounded-xl border-2 shadow-sm" style={{ borderColor: '#f7934c' }}>
-                      <p className="text-sm font-medium text-center" style={{ color: '#f7934c' }}>
-                        🎉 {referralCount}명의 친구가 당신의 코드를 사용했어요!
-                      </p>
-                    </div>
-                  )}
+                      {interest}
+                    </span>
+                  ))}
                 </div>
-              )}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-600 mb-4">페르소나가 생성되지 않았습니다.</p>
+              <p className="text-sm text-gray-500">온보딩을 완료하면 자동으로 생성됩니다.</p>
             </div>
           )}
 
-          {/* 계정 관리 */}
-          <div className="app-card overflow-hidden">
+          {/* 페르소나 재생성 버튼 */}
+          <button
+            onClick={handleRegeneratePersona}
+            disabled={isRegeneratingPersona}
+            className="w-full py-3 bg-gradient-to-r from-brand to-brand-light text-white rounded-xl font-semibold shadow-lg hover:shadow-xl active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+          >
+            {isRegeneratingPersona ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>페르소나 재생성 중...</span>
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-5 h-5" />
+                <span>페르소나 다시 생성하기</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* 계정 설정 섹션 */}
+        <div className="app-card p-6">
+          <div className="flex items-center space-x-3 mb-6">
+            <User className="w-6 h-6 text-gray-700" />
+            <h2 className="text-xl font-bold text-gray-900">계정 설정</h2>
+          </div>
+
+          <div className="space-y-3">
+            {/* 사용자 정보 */}
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-1">로그인 계정</p>
+              <p className="font-medium text-gray-900">{session?.user?.email}</p>
+            </div>
+
+            {/* 로그아웃 버튼 */}
             <button
-              onClick={() => setExpandedSection(expandedSection === 'account' ? null : 'account')}
-              className="w-full p-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              onClick={handleLogout}
+              className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-colors flex items-center justify-center space-x-2"
             >
-              <h2 className="text-lg font-bold text-gray-900">계정 관리</h2>
-              {expandedSection === 'account' ? (
-                <ChevronUp className="h-5 w-5 text-gray-400" />
+              <LogOut className="w-5 h-5" />
+              <span>로그아웃</span>
+            </button>
+
+            {/* 계정 삭제 버튼 */}
+            <button
+              onClick={handleDeleteAccount}
+              disabled={isDeletingAccount}
+              className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+            >
+              {isDeletingAccount ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>계정 삭제 중...</span>
+                </>
               ) : (
-                <ChevronDown className="h-5 w-5 text-gray-400" />
+                <>
+                  <Trash2 className="w-5 h-5" />
+                  <span>계정 삭제</span>
+                </>
               )}
             </button>
-            
-            {expandedSection === 'account' && (
-              <div className="px-5 pb-5 border-t space-y-3 pt-4">
-                {/* 로그아웃 */}
-                <button
-                  onClick={() => signOut({ callbackUrl: '/welcome' })}
-                  className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-4 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
-                >
-                  <LogOut className="h-5 w-5" />
-                  <span>로그아웃</span>
-                </button>
 
-                {/* 계정 삭제 */}
-                <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4">
-                  <h3 className="font-bold text-red-900 mb-2">⚠️ 계정 삭제</h3>
-                  <p className="text-sm text-red-700 mb-4 leading-relaxed">
-                    계정과 모든 데이터를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.
-                  </p>
-                  <button
-                    onClick={handleDeleteAccount}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-xl font-bold transition-all app-button flex items-center justify-center space-x-2"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                    <span>계정 삭제</span>
-                  </button>
-                </div>
-              </div>
-            )}
+            <p className="text-xs text-gray-500 text-center mt-2">
+              ⚠️ 계정 삭제 시 모든 데이터가 영구적으로 삭제됩니다
+            </p>
           </div>
         </div>
       </div>

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from './providers'
-import DevModeLink from '@/frontend/components/DevModeLink'
 
 export const metadata: Metadata = {
   title: 'Ownbrief - AI 팟캐스트 생성기',
@@ -31,7 +30,6 @@ export default function RootLayout({
         <Providers>
           <div className="mobile-app-container">
             {children}
-            <DevModeLink />
           </div>
         </Providers>
       </body>

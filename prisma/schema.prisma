@@ -38,17 +38,20 @@ model Session {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  name          String?
-  email         String?        @unique
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
-  podcasts      Podcast[]
-  userSettings  UserSettings?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                String              @id @default(cuid())
+  name              String?
+  email             String?             @unique
+  emailVerified     DateTime?
+  image             String?
+  accounts          Account[]
+  sessions          Session[]
+  podcasts          Podcast[]
+  briefings         Briefing[]
+  userSettings      UserSettings?
+  userPersona       UserPersona?
+  connectedServices ConnectedService[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 }
 
 model VerificationToken {
@@ -76,20 +79,54 @@ model Podcast {
 }
 
 model UserSettings {
-  id                   String    @id @default(cuid())
-  userId               String    @unique
-  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  selectedPlaylists    String[]  // 선택한 유튜브 플레이리스트 ID 배열
-  interests            String[]  // 관심 키워드 배열
-  onboardingCompleted  Boolean   @default(false) // 온보딩 완료 여부
-  deliveryTimeHour     Int       @default(8) // 팟캐스트 받을 시간 (0-23)
-  deliveryTimeMinute   Int       @default(0) // 팟캐스트 받을 분 (0-59)
-  lastDeliveryTimeUpdate DateTime? // 마지막 배달 시간 수정 시각
-  credits              Int       @default(15) // 남은 크레딧 수
-  isAdmin              Boolean   @default(false) // 관리자 권한
-  referralCode         String?   @unique // 사용자 고유 추천인 코드 (8자 영숫자)
-  referredBy           String?   // 추천인 코드 (누가 이 사용자를 초대했는지)
-  referralCount        Int       @default(0) // 추천한 사람 수
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credits       Int      @default(15) // 남은 크레딧 수
+  isAdmin       Boolean  @default(false) // 관리자 권한
+  referralCode  String?  @unique // 사용자 고유 추천인 코드 (8자 영숫자)
+  referredBy    String?  // 추천인 코드 (누가 이 사용자를 초대했는지)
+  referralCount Int      @default(0) // 추천한 사람 수
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model UserPersona {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  persona   Json // AI 생성 페르소나 (업무 스타일, 선호도 등)
+  interests String[] // 자동 추출된 관심사
+  workStyle String? // "morning-person", "night-owl", "flexible" 등
+  confirmed Boolean  @default(false) // 사용자 확인 여부
+  feedback  Json? // 사용자 피드백
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ConnectedService {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceName  String // "google", "slack", "notion"
+  accessToken  String    @db.Text
+  refreshToken String?   @db.Text
+  expiresAt    DateTime?
+  metadata     Json? // 서비스별 추가 정보
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, serviceName])
+}
+
+model Briefing {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  script      String   @db.Text
+  audioUrl    String?
+  duration    Int? // 초 단위
+  dataSources Json // 사용된 데이터 소스 정보
+  playCount   Int      @default(0)
+  createdAt   DateTime @default(now())
 }

@@ -25,19 +25,40 @@ declare module "next-auth/jwt" {
   }
 }
 
+// Custom adapter to filter out unsupported fields
+const customAdapter = {
+  ...PrismaAdapter(prisma),
+  async linkAccount(account: any) {
+    // refresh_token_expires_in 필드 제거 (Prisma Schema에 없음)
+    const { refresh_token_expires_in, ...accountData } = account
+    
+    return prisma.account.create({
+      data: accountData,
+    })
+  },
+}
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: customAdapter as any,
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: "openid email profile https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube",
+          scope: [
+            "openid",
+            "email",
+            "profile",
+            "https://www.googleapis.com/auth/youtube.readonly",
+            "https://www.googleapis.com/auth/calendar.readonly",
+            "https://www.googleapis.com/auth/gmail.readonly",
+          ].join(" "),
           access_type: "offline",  // refresh token을 받기 위해 필수
           prompt: "consent",       // 항상 동의 화면 표시하여 refresh token 받기
         }
-      }
+      },
+      allowDangerousEmailAccountLinking: true, // 같은 이메일로 재인증 허용
     })
   ],
   callbacks: {

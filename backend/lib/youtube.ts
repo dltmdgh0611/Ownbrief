@@ -1,113 +1,195 @@
-// YouTube API 직접 호출을 위한 유틸리티 함수들
+import { google } from 'googleapis'
+import { prisma } from './prisma'
 
-export async function getYouTubeVideosFromPlaylists(accessToken: string, playlistIds: string[]) {
-  console.log('🔍 YouTube API 호출 시작...')
-  console.log('📝 Access Token:', accessToken ? `${accessToken.substring(0, 20)}...` : '없음')
-  console.log('📋 선택된 플레이리스트:', playlistIds)
-  
-  if (!playlistIds || playlistIds.length === 0) {
-    console.error('❌ 선택된 플레이리스트가 없음')
-    throw new Error('플레이리스트를 먼저 선택해주세요.')
+export interface YoutubePlaylist {
+  id: string
+  title: string
+  description: string
+  itemCount: number
+}
+
+/**
+ * YouTube API 클라이언트
+ */
+export class YouTubeClient {
+  /**
+   * 사용자의 모든 플레이리스트 조회
+   */
+  static async getUserPlaylists(userEmail: string, maxResults = 50): Promise<YoutubePlaylist[]> {
+    try {
+      const accessToken = await this.getAccessToken(userEmail)
+      if (!accessToken) {
+        console.log('YouTube: No access token found')
+        return []
+      }
+
+      const youtube = google.youtube({ version: 'v3' })
+      const auth = new google.auth.OAuth2()
+      auth.setCredentials({ access_token: accessToken })
+
+      const response = await youtube.playlists.list({
+        auth,
+        part: ['snippet', 'contentDetails'],
+        mine: true,
+        maxResults,
+      })
+
+      const playlists = response.data.items || []
+
+      return playlists.map(playlist => ({
+        id: playlist.id!,
+        title: playlist.snippet?.title || '제목 없음',
+        description: playlist.snippet?.description || '',
+        itemCount: playlist.contentDetails?.itemCount || 0,
+      }))
+    } catch (error) {
+      console.error('YouTube API error:', error)
+      return []
+    }
   }
 
-  try {
-    const allVideos: any[] = []
-    
-    // 각 플레이리스트에서 동영상 가져오기
-    for (const playlistId of playlistIds) {
-      console.log(`📺 플레이리스트 ${playlistId}에서 동영상 가져오기...`)
-      
-      const response = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=10&order=date`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/json'
+  /**
+   * 플레이리스트 기반 관심사 분석
+   */
+  static async analyzeInterestsFromPlaylists(userEmail: string): Promise<{
+    playlistCount: number
+    interests: string[]
+    categories: string[]
+  }> {
+    try {
+      const playlists = await this.getUserPlaylists(userEmail)
+
+      if (playlists.length === 0) {
+        return {
+          playlistCount: 0,
+          interests: [],
+          categories: [],
+        }
+      }
+
+      // 플레이리스트 제목에서 키워드 추출
+      const interests = this.extractKeywordsFromTitles(
+        playlists.map(p => p.title)
+      )
+
+      // 카테고리 분류 (AI, 기술, 음악, 스포츠 등)
+      const categories = this.categorizeInterests(interests)
+
+      console.log(`✅ Analyzed ${playlists.length} playlists, found ${interests.length} interests`)
+
+      return {
+        playlistCount: playlists.length,
+        interests,
+        categories,
+      }
+    } catch (error) {
+      console.error('YouTube analysis error:', error)
+      return {
+        playlistCount: 0,
+        interests: [],
+        categories: [],
+      }
+    }
+  }
+
+  /**
+   * 플레이리스트 제목에서 키워드 추출
+   */
+  private static extractKeywordsFromTitles(titles: string[]): string[] {
+    const keywords = new Set<string>()
+
+    // 공통 불용어
+    const stopWords = new Set([
+      'playlist', 'video', 'videos', 'music', 'song', 'songs',
+      'my', 'the', 'and', 'or', 'to', 'from', 'with',
+      '플레이리스트', '동영상', '음악', '노래',
+      'watch', 'later', 'liked', 'favorites', '좋아요', '나중에',
+    ])
+
+    titles.forEach(title => {
+      // 특수문자 제거 및 단어 추출
+      const words = title
+        .toLowerCase()
+        .replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 2)
+
+      words.forEach(word => {
+        if (!stopWords.has(word)) {
+          keywords.add(word)
         }
       })
 
-      console.log(`📊 플레이리스트 ${playlistId} API 응답 상태:`, response.status, response.statusText)
-
-      if (!response.ok) {
-        const errorData = await response.text()
-        console.error(`❌ 플레이리스트 ${playlistId} API 오류 응답:`, errorData)
-        continue // 오류가 있어도 다른 플레이리스트는 계속 처리
+      // 전체 제목도 키워드로 추가 (짧은 경우)
+      if (title.length > 2 && title.length < 40) {
+        const cleanTitle = title.trim()
+        if (!stopWords.has(cleanTitle.toLowerCase())) {
+          keywords.add(cleanTitle)
+        }
       }
+    })
 
-      const data = await response.json()
-      console.log(`✅ 플레이리스트 ${playlistId} 응답 데이터:`, {
-        totalResults: data.pageInfo?.totalResults,
-        itemsCount: data.items?.length || 0
+    return Array.from(keywords).slice(0, 30) // 30개로 증가하여 다양성 확보
+  }
+
+  /**
+   * 관심사 카테고리 분류
+   */
+  private static categorizeInterests(interests: string[]): string[] {
+    const categories = new Set<string>()
+
+    const categoryKeywords: { [key: string]: string[] } = {
+      '기술/개발': ['tech', 'code', 'programming', 'developer', 'ai', 'ml', 'data', 'software', '개발', '코딩', '프로그래밍'],
+      '음악': ['music', 'kpop', 'jazz', 'rock', 'pop', 'hip-hop', '음악', '노래', 'song'],
+      '게임': ['game', 'gaming', 'gameplay', 'playthrough', '게임'],
+      '교육': ['tutorial', 'lecture', 'course', 'learn', 'education', '강의', '교육', '배우기'],
+      '운동/건강': ['workout', 'fitness', 'health', 'exercise', 'yoga', '운동', '건강', '요가'],
+      '요리': ['recipe', 'cooking', 'food', 'chef', '요리', '레시피', '음식'],
+      '여행': ['travel', 'tour', 'vlog', 'vacation', '여행', '관광'],
+      '영화/드라마': ['movie', 'drama', 'film', 'series', '영화', '드라마'],
+      '스포츠': ['sports', 'soccer', 'baseball', 'basketball', '축구', '야구', '농구'],
+      '뉴스': ['news', 'current', 'affairs', '뉴스', '시사'],
+    }
+
+    interests.forEach(interest => {
+      const lowerInterest = interest.toLowerCase()
+      
+      Object.entries(categoryKeywords).forEach(([category, keywords]) => {
+        if (keywords.some(keyword => lowerInterest.includes(keyword))) {
+          categories.add(category)
+        }
+      })
+    })
+
+    return Array.from(categories).slice(0, 5)
+  }
+
+  /**
+   * Access Token 조회
+   */
+  private static async getAccessToken(userEmail: string): Promise<string | null> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { email: userEmail },
+        include: {
+          accounts: true,
+        },
       })
 
-      if (data.items) {
-        allVideos.push(...data.items)
+      if (!user) {
+        return null
       }
-    }
 
-    // 최근 동영상 5개만 선택
-    const recentVideos = allVideos
-      .sort((a: any, b: any) => new Date(b.snippet?.publishedAt || 0).getTime() - new Date(a.snippet?.publishedAt || 0).getTime())
-      .slice(0, 5)
-
-    console.log('✅ 최종 선택된 동영상:', {
-      totalVideos: allVideos.length,
-      selectedVideos: recentVideos.length,
-      videos: recentVideos.map((item: any) => ({
-        id: item.snippet?.resourceId?.videoId,
-        title: item.snippet?.title,
-        publishedAt: item.snippet?.publishedAt
-      }))
-    })
-
-    return recentVideos
-  } catch (error: any) {
-    console.error('❌ YouTube API 상세 오류:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    })
-    throw new Error('유튜브 동영상을 가져오는데 실패했습니다.')
-  }
-}
-
-export async function getVideoDetails(videoIds: string[], accessToken: string) {
-  console.log('🔍 동영상 상세 정보 요청 중...')
-  console.log('📝 Video IDs:', videoIds)
-  
-  try {
-    const idsParam = videoIds.join(',')
-    const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${idsParam}`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json'
+      // Account 테이블에서 Google OAuth 토큰 찾기
+      const googleAccount = user.accounts.find(a => a.provider === 'google')
+      if (googleAccount?.access_token) {
+        return googleAccount.access_token
       }
-    })
 
-    console.log('📊 동영상 상세 정보 응답 상태:', response.status, response.statusText)
-
-    if (!response.ok) {
-      const errorData = await response.text()
-      console.error('❌ 동영상 상세 정보 오류 응답:', errorData)
-      throw new Error(`YouTube API error: ${response.status} - ${errorData}`)
+      return null
+    } catch (error) {
+      console.error('Error getting access token:', error)
+      return null
     }
-
-    const data = await response.json()
-    console.log('✅ 동영상 상세 정보 응답 데이터:', {
-      itemsCount: data.items?.length || 0,
-      items: data.items?.map((item: any) => ({
-        id: item.id,
-        title: item.snippet?.title,
-        duration: item.contentDetails?.duration,
-        thumbnail: item.snippet?.thumbnails?.default?.url
-      }))
-    })
-
-    return data.items || []
-  } catch (error: any) {
-    console.error('❌ 동영상 상세 정보 오류:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    })
-    throw new Error('동영상 상세 정보를 가져오는데 실패했습니다.')
   }
 }
