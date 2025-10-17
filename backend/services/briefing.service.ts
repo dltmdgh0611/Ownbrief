@@ -1,21 +1,20 @@
 import { prisma } from '../lib/prisma'
-import { CalendarService } from './calendar.service'
-import { GmailService } from './gmail.service'
-import { SlackService } from './slack.service'
-import { NotionService } from './notion.service'
+import { CalendarClient } from '../lib/calendar'
+import { GmailClient } from '../lib/gmail'
+import { SlackClient } from '../lib/slack'
+import { NotionClient } from '../lib/notion'
+import { YouTubeClient } from '../lib/youtube'
 import { PersonaService, Persona } from './persona.service'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { getYouTubeVideosFromPlaylists } from '../lib/youtube'
-import { getVideoTranscriptWithApify } from '../lib/apify-transcript'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export interface BriefingData {
-  calendar: any[]
-  gmail: any[]
-  slack: any[]
-  notion: any[]
-  youtube: any[]
+  calendar: any
+  gmail: any
+  slack: any
+  notion: any
+  youtube: any
   persona: Persona | null
 }
 
@@ -90,25 +89,25 @@ export class BriefingService {
     // 모든 서비스에서 병렬 데이터 수집
     const [calendarResult, gmailResult, slackResult, notionResult, youtubeResult] = 
       await Promise.allSettled([
-        CalendarService.getTodayEvents(userEmail, 10),
-        GmailService.getUnreadImportant(userEmail, 5),
-        SlackService.getMentions(userEmail, 10),
-        NotionService.getRecentUpdates(userEmail, 5),
+        CalendarClient.getTodayEvents(userEmail, 10),
+        GmailClient.analyzeRecentEmails(userEmail),
+        SlackClient.analyzeCommunicationStyle(userEmail),
+        NotionClient.analyzeWorkStyle(userEmail),
         this.getYouTubeInterests(userEmail, 3),
       ])
 
-    const calendar = calendarResult.status === 'fulfilled' ? calendarResult.value : []
-    const gmail = gmailResult.status === 'fulfilled' ? gmailResult.value : []
-    const slack = slackResult.status === 'fulfilled' ? slackResult.value : []
-    const notion = notionResult.status === 'fulfilled' ? notionResult.value : []
+    const calendar = calendarResult.status === 'fulfilled' ? calendarResult.value || [] : []
+    const gmail = gmailResult.status === 'fulfilled' ? gmailResult.value?.realInterests || [] : []
+    const slack = slackResult.status === 'fulfilled' ? slackResult.value || [] : []
+    const notion = notionResult.status === 'fulfilled' ? notionResult.value || [] : []
     const youtube = youtubeResult.status === 'fulfilled' ? youtubeResult.value : []
 
     console.log('📈 Data collection summary:', {
-      calendar: calendar.length,
-      gmail: gmail.length,
-      slack: slack.length,
-      notion: notion.length,
-      youtube: youtube.length,
+      calendar: Array.isArray(calendar) ? calendar.length : 0,
+      gmail: Array.isArray(gmail) ? gmail.length : 0,
+      slack: slack ? 1 : 0,
+      notion: notion ? 1 : 0,
+      youtube: Array.isArray(youtube) ? youtube.length : 0,
     })
 
     return {
@@ -244,7 +243,7 @@ ${data.youtube.length > 0 ? JSON.stringify(data.youtube, null, 2) : '트렌드 �
 
     if (data.calendar.length > 0) {
       script += `[ 오늘의 일정 ]\n오늘은 총 ${data.calendar.length}개의 일정이 있습니다.\n`
-      data.calendar.slice(0, 3).forEach(event => {
+      data.calendar.slice(0, 3).forEach((event: any) => {
         script += `- ${event.summary}\n`
       })
       script += '\n'

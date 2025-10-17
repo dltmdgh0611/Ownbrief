@@ -14,12 +14,11 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { workStyle, interests, primaryProjects, additionalNotes } = body
+    const { workStyle, interests, additionalNotes } = body
 
     await PersonaService.submitFeedback(session.user.email, {
       workStyle,
       interests,
-      primaryProjects,
       additionalNotes,
     })
 

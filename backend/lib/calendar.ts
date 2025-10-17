@@ -50,10 +50,10 @@ export class CalendarClient {
       return events.map(event => ({
         id: event.id!,
         summary: event.summary || '제목 없음',
-        description: event.description,
+        description: event.description || undefined,
         start: event.start?.dateTime || event.start?.date || '',
         end: event.end?.dateTime || event.end?.date || '',
-        location: event.location,
+        location: event.location || undefined,
         attendees: event.attendees?.map(a => a.email).filter(Boolean) as string[],
       }))
     } catch (error) {
@@ -97,10 +97,10 @@ export class CalendarClient {
       return events.map(event => ({
         id: event.id!,
         summary: event.summary || '제목 없음',
-        description: event.description,
+        description: event.description || undefined,
         start: event.start?.dateTime || event.start?.date || '',
         end: event.end?.dateTime || event.end?.date || '',
-        location: event.location,
+        location: event.location || undefined,
         attendees: event.attendees?.map(a => a.email).filter(Boolean) as string[],
       }))
     } catch (error) {

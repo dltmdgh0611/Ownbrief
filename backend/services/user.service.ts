@@ -115,19 +115,10 @@ export class UserService {
       where: { userId: user.id },
       create: {
         userId: user.id,
-        selectedPlaylists,
-        interests: interests || [],
-        deliveryTimeHour: deliveryTimeHour ?? 8,
-        deliveryTimeMinute: deliveryTimeMinute ?? 0,
-        onboardingCompleted: false,
-        credits: 15,
         referralCode
       },
       update: {
-        selectedPlaylists,
-        interests: interests || [],
-        deliveryTimeHour: deliveryTimeHour ?? 8,
-        deliveryTimeMinute: deliveryTimeMinute ?? 0
+        updatedAt: new Date()
       }
     })
   }
@@ -204,45 +195,7 @@ export class UserService {
     deliveryTimeHour: number,
     deliveryTimeMinute: number
   ) {
-    if (deliveryTimeHour < 0 || deliveryTimeHour > 23) {
-      throw new Error('시간은 0-23 사이여야 합니다.')
-    }
-
-    if (deliveryTimeMinute < 0 || deliveryTimeMinute > 59) {
-      throw new Error('분은 0-59 사이여야 합니다.')
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: userEmail },
-      include: { userSettings: true }
-    })
-
-    if (!user) {
-      throw new Error('사용자를 찾을 수 없습니다.')
-    }
-
-    // 관리자 권한 확인
-    const isAdmin = await this.isAdmin(userEmail)
-    
-    // 관리자가 아닌 경우 하루에 한 번만 수정 가능
-    if (!isAdmin && user.userSettings?.lastDeliveryTimeUpdate) {
-      const lastUpdate = new Date(user.userSettings.lastDeliveryTimeUpdate)
-      const now = new Date()
-      const hoursSinceLastUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60)
-      
-      if (hoursSinceLastUpdate < 24) {
-        const hoursRemaining = Math.ceil(24 - hoursSinceLastUpdate)
-        throw new Error(`배달 시간은 하루에 한 번만 변경할 수 있습니다. ${hoursRemaining}시간 후에 다시 시도해주세요.`)
-      }
-    }
-
-    return await prisma.userSettings.update({
-      where: { userId: user.id },
-      data: {
-        deliveryTimeHour,
-        deliveryTimeMinute,
-        lastDeliveryTimeUpdate: new Date()
-      }
-    })
+    // 레거시 메서드 - 사용되지 않음
+    throw new Error('This method is deprecated')
   }
 }
