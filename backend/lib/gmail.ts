@@ -75,7 +75,57 @@ export class GmailClient {
         })
       )
 
-      return detailedMessages.filter(Boolean) as GmailMessage[]
+      const emails = (detailedMessages.filter(Boolean) as GmailMessage[])
+        .map(m => ({
+          ...m,
+          from: m.from.replace(/\"/g, ''),
+          subject: m.subject.trim(),
+        }))
+
+      // 광고/알림/뉴스레터 등 제거
+      const blockedSenderPatterns = [
+        /no-?reply/i,
+        /mailer-daemon/i,
+        /notification/i,
+        /noreply/i,
+      ]
+      const blockedSubjectPatterns = [
+        /광고/i,
+        /프로모션/i,
+        /promotion/i,
+        /newsletter/i,
+        /뉴스레터/i,
+        /알림/i,
+        /공지/i,
+        /업데이트/i,
+      ]
+
+      const filtered = emails.filter((email) => {
+        // 라벨 기반 필터 (프로모션/소셜 제외)
+        const labels = email.labels || []
+        const hasPromo = labels.includes('CATEGORY_PROMOTIONS')
+        const hasSocial = labels.includes('CATEGORY_SOCIAL')
+        if (hasPromo || hasSocial) return false
+
+        // 발신자 키워드 필터
+        if (blockedSenderPatterns.some((re) => re.test(email.from))) return false
+        // 제목 키워드 필터
+        if (blockedSubjectPatterns.some((re) => re.test(email.subject))) return false
+
+        return true
+      })
+
+      // 중요도 휴리스틱: 제목에 액션성 키워드가 있는 것 우선, 최신순
+      const actionKeywords = [/확인/i, /승인/i, /서명/i, /결제/i, /응답/i, /마감/i, /회의/i]
+      const scored = filtered.map(e => {
+        const score = (actionKeywords.some(re => re.test(e.subject)) ? 2 : 0) + (e.labels.includes('IMPORTANT') ? 1 : 0)
+        return { email: e, score }
+      })
+      .sort((a,b) => b.score - a.score || new Date(b.email.date).getTime() - new Date(a.email.date).getTime())
+      .slice(0, Math.min(2, limit)) // 상위 1~2개만 선택
+      .map(s => s.email)
+
+      return scored
     } catch (error) {
       console.error('Gmail API error:', error)
       return []
@@ -111,6 +161,7 @@ export class GmailClient {
     try {
       const accessToken = await this.getAccessToken(userEmail)
       if (!accessToken) {
+        console.log('Gmail access token not found for user:', userEmail)
         return {
           totalEmails: 0,
           topSenders: [],
@@ -125,12 +176,21 @@ export class GmailClient {
       auth.setCredentials({ access_token: accessToken })
 
       // 최근 100개 메일 가져오기 (광고 제외)
-      const response = await gmail.users.messages.list({
-        auth,
-        userId: 'me',
-        q: '-category:promotions -category:social -is:spam', // 광고, SNS, 스팸 제외
-        maxResults: 100,
-      })
+      let response
+      try {
+        response = await gmail.users.messages.list({
+          auth,
+          userId: 'me',
+          q: '-category:promotions -category:social -is:spam', // 광고, SNS, 스팸 제외
+          maxResults: 100,
+        })
+      } catch (apiError: any) {
+        console.error('Gmail API 호출 오류:', apiError.message)
+        if (apiError.message?.includes('invalid_grant') || apiError.message?.includes('Invalid Credentials')) {
+          throw new Error('invalid_grant: Gmail 권한이 필요합니다.')
+        }
+        throw apiError
+      }
 
       const messages = response.data.messages || []
       
@@ -333,7 +393,7 @@ export class GmailClient {
   }
 
   /**
-   * Access Token 조회
+   * Access Token 조회 및 자동 갱신
    */
   private static async getAccessToken(userEmail: string): Promise<string | null> {
     try {
@@ -355,10 +415,38 @@ export class GmailClient {
         return googleService.accessToken
       }
 
-      // 없으면 Account 테이블에서 찾기
+      // Account 테이블에서 찾기
       const googleAccount = user.accounts.find(a => a.provider === 'google')
       if (googleAccount?.access_token) {
-        return googleAccount.access_token
+        // 토큰 만료 확인
+        const now = Math.floor(Date.now() / 1000)
+        if (googleAccount.expires_at && googleAccount.expires_at > now) {
+          return googleAccount.access_token
+        }
+
+        // 토큰이 만료되었고 refresh_token이 있으면 갱신
+        if (googleAccount.refresh_token) {
+          console.log('🔄 Gmail: Refreshing expired access token...')
+          try {
+            const refreshedToken = await this.refreshAccessToken(googleAccount.refresh_token)
+            
+            // DB 업데이트
+            await prisma.account.update({
+              where: { id: googleAccount.id },
+              data: {
+                access_token: refreshedToken.access_token,
+                expires_at: Math.floor(Date.now() / 1000) + refreshedToken.expires_in,
+                refresh_token: refreshedToken.refresh_token || googleAccount.refresh_token,
+              },
+            })
+            
+            console.log('✅ Gmail: Access token refreshed successfully')
+            return refreshedToken.access_token
+          } catch (error) {
+            console.error('❌ Gmail: Failed to refresh access token:', error)
+            return null
+          }
+        }
       }
 
       return null
@@ -366,6 +454,35 @@ export class GmailClient {
       console.error('Error getting access token:', error)
       return null
     }
+  }
+
+  /**
+   * Access Token 갱신
+   */
+  private static async refreshAccessToken(refreshToken: string): Promise<{
+    access_token: string
+    expires_in: number
+    refresh_token?: string
+  }> {
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to refresh token')
+    }
+
+    return await response.json()
   }
 }
 

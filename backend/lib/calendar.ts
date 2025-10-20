@@ -9,6 +9,8 @@ export interface CalendarEvent {
   end: string
   location?: string
   attendees?: string[]
+  calendarName?: string // 캘린더 이름
+  calendarId?: string // 캘린더 ID
 }
 
 /**
@@ -16,7 +18,7 @@ export interface CalendarEvent {
  */
 export class CalendarClient {
   /**
-   * 사용자의 오늘 일정 조회
+   * 사용자의 오늘 일정 조회 (모든 캘린더 포함)
    */
   static async getTodayEvents(userEmail: string, limit = 10): Promise<CalendarEvent[]> {
     try {
@@ -35,27 +37,63 @@ export class CalendarClient {
       const tomorrow = new Date(today)
       tomorrow.setDate(tomorrow.getDate() + 1)
 
-      const response = await calendar.events.list({
+      // 1. 먼저 사용자가 접근 가능한 모든 캘린더 목록 가져오기
+      const calendarListResponse = await calendar.calendarList.list({
         auth,
-        calendarId: 'primary',
-        timeMin: today.toISOString(),
-        timeMax: tomorrow.toISOString(),
-        maxResults: limit,
-        singleEvents: true,
-        orderBy: 'startTime',
+        minAccessRole: 'reader', // 읽기 권한 이상인 캘린더만
       })
 
-      const events = response.data.items || []
+      const calendarList = calendarListResponse.data.items || []
+      console.log(`📅 접근 가능한 캘린더 수: ${calendarList.length}`)
       
-      return events.map(event => ({
-        id: event.id!,
-        summary: event.summary || '제목 없음',
-        description: event.description || undefined,
-        start: event.start?.dateTime || event.start?.date || '',
-        end: event.end?.dateTime || event.end?.date || '',
-        location: event.location || undefined,
-        attendees: event.attendees?.map(a => a.email).filter(Boolean) as string[],
-      }))
+      // 2. 각 캘린더에서 오늘 일정 가져오기
+      const allEvents: CalendarEvent[] = []
+      
+      for (const cal of calendarList) {
+        try {
+          const response = await calendar.events.list({
+            auth,
+            calendarId: cal.id!,
+            timeMin: today.toISOString(),
+            timeMax: tomorrow.toISOString(),
+            maxResults: limit,
+            singleEvents: true,
+            orderBy: 'startTime',
+          })
+
+          const events = response.data.items || []
+          
+          const calendarEvents = events.map(event => ({
+            id: event.id!,
+            summary: event.summary || '제목 없음',
+            description: event.description || undefined,
+            start: event.start?.dateTime || event.start?.date || '',
+            end: event.end?.dateTime || event.end?.date || '',
+            location: event.location || undefined,
+            attendees: event.attendees?.map(a => a.email).filter(Boolean) as string[],
+            calendarName: cal.summary || cal.id || undefined, // 캘린더 이름 추가
+            calendarId: cal.id || undefined,
+          }))
+          
+          allEvents.push(...calendarEvents)
+          console.log(`📅 ${cal.summary || cal.id}: ${events.length}개 일정`)
+          
+        } catch (calError) {
+          console.warn(`⚠️ 캘린더 ${cal.summary || cal.id} 일정 조회 실패:`, calError)
+          // 개별 캘린더 오류는 무시하고 계속 진행
+        }
+      }
+
+      // 3. 시간순으로 정렬하고 제한된 수만 반환
+      const sortedEvents = allEvents.sort((a, b) => {
+        const timeA = new Date(a.start).getTime()
+        const timeB = new Date(b.start).getTime()
+        return timeA - timeB
+      })
+
+      console.log(`📅 총 ${sortedEvents.length}개 일정 수집 완료`)
+      return sortedEvents.slice(0, limit)
+      
     } catch (error) {
       console.error('Calendar API error:', error)
       return []
@@ -210,7 +248,7 @@ export class CalendarClient {
   }
 
   /**
-   * Access Token 조회 (ConnectedService 또는 Account 테이블에서)
+   * Access Token 조회 및 자동 갱신
    */
   private static async getAccessToken(userEmail: string): Promise<string | null> {
     try {
@@ -232,10 +270,38 @@ export class CalendarClient {
         return googleService.accessToken
       }
 
-      // 없으면 Account 테이블에서 찾기
+      // Account 테이블에서 찾기
       const googleAccount = user.accounts.find(a => a.provider === 'google')
       if (googleAccount?.access_token) {
-        return googleAccount.access_token
+        // 토큰 만료 확인
+        const now = Math.floor(Date.now() / 1000)
+        if (googleAccount.expires_at && googleAccount.expires_at > now) {
+          return googleAccount.access_token
+        }
+
+        // 토큰이 만료되었고 refresh_token이 있으면 갱신
+        if (googleAccount.refresh_token) {
+          console.log('🔄 Calendar: Refreshing expired access token...')
+          try {
+            const refreshedToken = await this.refreshAccessToken(googleAccount.refresh_token)
+            
+            // DB 업데이트
+            await prisma.account.update({
+              where: { id: googleAccount.id },
+              data: {
+                access_token: refreshedToken.access_token,
+                expires_at: Math.floor(Date.now() / 1000) + refreshedToken.expires_in,
+                refresh_token: refreshedToken.refresh_token || googleAccount.refresh_token,
+              },
+            })
+            
+            console.log('✅ Calendar: Access token refreshed successfully')
+            return refreshedToken.access_token
+          } catch (error) {
+            console.error('❌ Calendar: Failed to refresh access token:', error)
+            return null
+          }
+        }
       }
 
       return null
@@ -243,6 +309,35 @@ export class CalendarClient {
       console.error('Error getting access token:', error)
       return null
     }
+  }
+
+  /**
+   * Access Token 갱신
+   */
+  private static async refreshAccessToken(refreshToken: string): Promise<{
+    access_token: string
+    expires_in: number
+    refresh_token?: string
+  }> {
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to refresh token')
+    }
+
+    return await response.json()
   }
 }
 

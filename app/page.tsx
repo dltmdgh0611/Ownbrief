@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import Header from '@/frontend/components/Header'
 import BriefingPlayer from '@/frontend/components/BriefingPlayer'
-import ConnectedServices from '@/frontend/components/ConnectedServices'
 import { useOnboarding } from '@/frontend/hooks/useOnboarding'
 
 export default function Home() {
@@ -75,9 +74,6 @@ export default function Home() {
       <main className="flex-1 overflow-y-auto">
         <BriefingPlayer userEmail={session.user.email!} />
       </main>
-
-      {/* 하단 연결된 서비스 */}
-      <ConnectedServices />
     </div>
   )
 }

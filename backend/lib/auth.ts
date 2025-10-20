@@ -46,17 +46,10 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: [
-            "openid",
-            "email",
-            "profile",
-            "https://www.googleapis.com/auth/youtube.readonly",
-            "https://www.googleapis.com/auth/calendar.readonly",
-            "https://www.googleapis.com/auth/gmail.readonly",
-          ].join(" "),
+          scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/youtube.readonly",
           access_type: "offline",  // refresh token을 받기 위해 필수
           prompt: "consent",       // 항상 동의 화면 표시하여 refresh token 받기
-        }
+        },
       },
       allowDangerousEmailAccountLinking: true, // 같은 이메일로 재인증 허용
     })
@@ -164,7 +157,15 @@ export const authOptions: NextAuthOptions = {
           return token
         } catch (error) {
           console.error('❌ Error refreshing access token:', error)
-          // 에러 발생 시 기존 토큰 반환 (사용자 재로그인 유도)
+          
+          // invalid_grant 오류인 경우 토큰을 무효화하여 재인증 유도
+          if (error instanceof Error && error.message.includes('invalid_grant')) {
+            console.log('🔄 Invalid grant detected, clearing tokens for reauth')
+            token.accessToken = undefined
+            token.refreshToken = undefined
+            token.expiresAt = 0
+          }
+          
           return token
         }
       }
@@ -172,7 +173,12 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token, user }) {
-      session.accessToken = token.accessToken as string
+      // 토큰이 무효한 경우 세션에서 제거
+      if (!token.accessToken || !token.expiresAt || Date.now() >= (token.expiresAt as number) * 1000) {
+        session.accessToken = undefined
+      } else {
+        session.accessToken = token.accessToken as string
+      }
       
       // JWT 전략을 사용하므로 token에서 userId 가져오기
       if (token.userId) {

@@ -10,7 +10,7 @@ export const maxDuration = 300 // 5분
 /**
  * 브리핑 생성 스트리밍 API (Server-Sent Events)
  */
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {

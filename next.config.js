@@ -8,7 +8,17 @@ const nextConfig = {
     YOUTUBE_API_KEY: process.env.YOUTUBE_API_KEY,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   },
+  // 개발 모드에서 더 나은 디버깅
+  ...(process.env.NODE_ENV === 'development' && {
+    typescript: {
+      ignoreBuildErrors: false,
+    },
+    eslint: {
+      ignoreDuringBuilds: false,
+    },
+  }),
   // 파일 시스템 오류 해결을 위한 설정
   webpack: (config, { isServer }) => {
     if (!isServer) {
