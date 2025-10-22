@@ -32,6 +32,11 @@ export default function DevPage() {
       method: 'GET'
     },
     {
+      name: 'Slack API (직접)',
+      endpoint: '/api/dev/test?type=slack',
+      method: 'GET'
+    },
+    {
       name: '사용자 세션',
       endpoint: '/api/dev/test?type=session',
       method: 'GET'
@@ -47,6 +52,12 @@ export default function DevPage() {
       endpoint: '/api/briefing/next-section',
       method: 'POST',
       body: { sectionIndex: 1 }
+    },
+    {
+      name: '브리핑 Slack',
+      endpoint: '/api/briefing/next-section',
+      method: 'POST',
+      body: { sectionIndex: 2 }
     },
     {
       name: 'TTS 생성',
@@ -254,6 +265,8 @@ export default function DevPage() {
             {[
               'GOOGLE_CLIENT_ID',
               'GOOGLE_CLIENT_SECRET',
+              'SLACK_CLIENT_ID',
+              'SLACK_CLIENT_SECRET',
               'GEMINI_API_KEY',
               'YOUTUBE_API_KEY',
               'OPENAI_API_KEY',
@@ -270,6 +283,125 @@ export default function DevPage() {
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Slack 전용 테스트 */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Slack 전용 테스트</h2>
+          <div className="space-y-4">
+            <div className="p-4 bg-purple-50 rounded-lg">
+              <h3 className="font-medium text-purple-900 mb-2">Slack 멘션 테스트</h3>
+              <p className="text-sm text-purple-700 mb-3">
+                Slack에서 사용자를 멘션한 메시지를 가져와서 읽지 않은 상태를 확인합니다.
+              </p>
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/dev/test?type=slack')
+                    const data = await response.json()
+                    console.log('Slack test result:', data)
+                    
+                    if (data.success) {
+                      alert(`Slack 테스트 성공!\n멘션 수: ${data.data?.mentionCount || 0}\n채널: ${data.data?.channels?.join(', ') || '없음'}`)
+                    } else {
+                      alert(`Slack 테스트 실패: ${data.error}`)
+                    }
+                  } catch (error) {
+                    console.error('Slack test error:', error)
+                    alert('Slack 테스트 실패')
+                  }
+                }}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
+                Slack 멘션 테스트 실행
+              </button>
+            </div>
+            
+            <div className="p-4 bg-blue-50 rounded-lg">
+              <h3 className="font-medium text-blue-900 mb-2">Slack 연결 상태 확인</h3>
+              <p className="text-sm text-blue-700 mb-3">
+                현재 사용자의 Slack 연결 상태와 토큰 정보를 확인합니다.
+              </p>
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/user/settings')
+                    const data = await response.json()
+                    console.log('User settings:', data)
+                    
+                    const slackConnected = data.settings?.connectedServices?.find((s: any) => s.serviceName === 'slack')
+                    if (slackConnected) {
+                      alert(`Slack 연결됨!\n연결 시간: ${new Date(slackConnected.createdAt).toLocaleString()}`)
+                    } else {
+                      alert('Slack이 연결되지 않았습니다.')
+                    }
+                  } catch (error) {
+                    console.error('Connection check error:', error)
+                    alert('연결 상태 확인 실패')
+                  }
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                연결 상태 확인
+              </button>
+            </div>
+            
+            <div className="p-4 bg-green-50 rounded-lg">
+              <h3 className="font-medium text-green-900 mb-2">Private 채널 테스트</h3>
+              <p className="text-sm text-green-700 mb-3">
+                Private 채널에서 멘션된 메시지를 가져올 수 있는지 테스트합니다. 터미널에서 상세 로그를 확인하세요.
+              </p>
+              <button
+                onClick={async () => {
+                  try {
+                    console.log('🧪 Private 채널 테스트 시작...')
+                    const response = await fetch('/api/dev/test?type=slack')
+                    const data = await response.json()
+                    console.log('Private 채널 테스트 결과:', data)
+                    
+                    if (data.success) {
+                      const privateChannels = data.data?.mentions?.filter((m: any) => m.channel?.startsWith('G')) || []
+                      alert(`Slack 테스트 완료!\n전체 멘션: ${data.data?.mentionCount || 0}\nPrivate 채널 멘션: ${privateChannels.length}\n채널 목록: ${data.data?.channels?.join(', ') || '없음'}`)
+                    } else {
+                      alert(`Slack 테스트 실패: ${data.error}`)
+                    }
+                  } catch (error) {
+                    console.error('Private 채널 테스트 오류:', error)
+                    alert('Private 채널 테스트 실패')
+                  }
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                Private 채널 테스트 실행
+              </button>
+            </div>
+            
+            <div className="p-4 bg-orange-50 rounded-lg">
+              <h3 className="font-medium text-orange-900 mb-2">채널 목록 디버깅</h3>
+              <p className="text-sm text-orange-700 mb-3">
+                모든 채널 목록을 가져와서 Private 채널이 포함되어 있는지 확인합니다.
+              </p>
+              <button
+                onClick={async () => {
+                  try {
+                    console.log('🔍 채널 목록 디버깅 시작...')
+                    const response = await fetch('/api/dev/test?type=slack')
+                    const data = await response.json()
+                    console.log('채널 목록 디버깅 결과:', data)
+                    
+                    // 터미널 로그에서 확인할 수 있도록 안내
+                    alert(`채널 목록 디버깅 완료!\n터미널에서 다음 로그들을 확인하세요:\n- 📋 전체 채널 상세 정보\n- 🔒 Private 채널 수\n- 🔍 방법 1, 2, 3 시도 결과`)
+                  } catch (error) {
+                    console.error('채널 목록 디버깅 오류:', error)
+                    alert('채널 목록 디버깅 실패')
+                  }
+                }}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+              >
+                채널 목록 디버깅 실행
+              </button>
+            </div>
           </div>
         </div>
 

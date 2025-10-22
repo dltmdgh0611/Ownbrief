@@ -53,7 +53,7 @@ export class BriefingService {
       const sections = [
         { name: 'calendar', title: '오늘의 일정', client: CalendarClient, method: 'getTodayEvents' },
         { name: 'gmail', title: '중요 메일', client: GmailClient, method: 'analyzeRecentEmails' },
-        { name: 'slack', title: '팀 커뮤니케이션', client: SlackClient, method: 'analyzeCommunicationStyle' },
+        { name: 'slack', title: '팀 커뮤니케이션', client: SlackClient, method: 'getUnreadMentions' },
         { name: 'notion', title: '업무 진행 상황', client: NotionClient, method: 'analyzeWorkStyle' },
         { name: 'youtube', title: '관심사 트렌드', client: null, method: 'getYouTubeInterests' },
       ]
@@ -162,7 +162,7 @@ export class BriefingService {
       await Promise.allSettled([
         CalendarClient.getTodayEvents(userEmail, 10),
         GmailClient.analyzeRecentEmails(userEmail),
-        SlackClient.analyzeCommunicationStyle(userEmail),
+        SlackClient.getUnreadMentions(userEmail, 20),
         NotionClient.analyzeWorkStyle(userEmail),
         this.getYouTubeInterests(userEmail, 3),
       ])
@@ -263,7 +263,7 @@ ${data.calendar.length > 0 ? JSON.stringify(data.calendar, null, 2) : '일정 �
 ${data.gmail.length > 0 ? JSON.stringify(data.gmail, null, 2) : '새 메일 없음'}
 
 ### 팀 커뮤니케이션 (Slack)
-${data.slack.length > 0 ? JSON.stringify(data.slack, null, 2) : 'Slack 연동 안 됨'}
+${data.slack.length > 0 ? JSON.stringify(data.slack, null, 2) : '최근 멘션 없음'}
 
 ### 업무 진행 (Notion)
 ${data.notion.length > 0 ? JSON.stringify(data.notion, null, 2) : 'Notion 연동 안 됨'}
@@ -284,7 +284,7 @@ ${data.youtube.length > 0 ? JSON.stringify(data.youtube, null, 2) : '트렌드 �
 (Gmail 데이터 기반으로 미읽은 중요 메일 요약)
 
 [ 팀 커뮤니케이션 ]
-(Slack 데이터 기반으로 멘션된 메시지 요약)
+(Slack 데이터 기반으로 최근 24시간 내 멘션된 메시지 요약)
 
 [ 업무 진행 상황 ]
 (Notion 데이터 기반으로 최근 업데이트된 작업 요약)
@@ -499,9 +499,19 @@ ${data && data.interests && data.interests.length > 0 ? JSON.stringify(data.inte
           : '새로운 중요 메일은 없습니다.'
       
       case 'slack':
-        return data && data.length > 0 
-          ? `새로운 멘션이 ${data.length}개 있습니다.`
-          : '새로운 멘션은 없습니다.'
+        return `지시: 모든 문장은 자연스러운 한국어(존댓말)로만 작성하고, 불필요한 영어 표현을 사용하지 마세요.
+팀 커뮤니케이션 상황을 브리핑하세요. 자연스럽고 친근한 대화체로 작성하세요. 이전 섹션에서 자연스럽게 이어지는 연결 문장 1문장을 맨 앞에 넣고, 마지막에는 다음 섹션으로 넘어가는 연결 문장을 1문장 포함하세요.
+
+## Slack 멘션 데이터 (최근 24시간 내)
+${data && data.length > 0 ? JSON.stringify(data, null, 2) : '최근 멘션된 메시지가 없습니다'}
+
+## 브리핑 형식
+- 멘션이 있으면: "팀에서 [채널명]에서 [사용자명]님이 [내용 요약]에 대해 언급해주셨네요"
+- 멘션이 없으면: "오늘은 팀에서 특별히 언급해주신 내용이 없었습니다"
+- 중요한 내용이나 액션이 필요한 경우 우선 언급
+- 총 25~35초 분량으로 간결하게
+
+브리핑을 작성하세요:`
       
       case 'notion':
         return data && data.length > 0 

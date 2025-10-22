@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/backend/lib/auth'
 import { CalendarClient } from '@/backend/lib/calendar'
 import { GmailClient } from '@/backend/lib/gmail'
+import { SlackClient } from '@/backend/lib/slack'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -11,6 +12,7 @@ export const dynamic = 'force-dynamic'
  * 개발자 모드 API 테스트 엔드포인트
  * GET /api/dev/test-calendar - Calendar API 테스트
  * GET /api/dev/test-gmail - Gmail API 테스트
+ * GET /api/dev/test-slack - Slack API 테스트
  * GET /api/dev/test-session - 세션 정보 확인
  */
 
@@ -43,6 +45,9 @@ export async function GET(request: NextRequest) {
       case 'gmail':
         return await testGmailAPI(userEmail)
       
+      case 'slack':
+        return await testSlackAPI(userEmail)
+      
       case 'session':
         return await testSession(session)
       
@@ -53,7 +58,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           success: false,
           error: 'INVALID_TYPE',
-          message: '지원하지 않는 테스트 타입입니다. type=calendar|gmail|session|all'
+          message: '지원하지 않는 테스트 타입입니다. type=calendar|gmail|slack|session|all'
         }, { status: 400 })
     }
 
@@ -136,6 +141,44 @@ async function testGmailAPI(userEmail: string) {
   }
 }
 
+async function testSlackAPI(userEmail: string) {
+  const startTime = Date.now()
+  
+  try {
+    console.log('🧪 Dev API에서 Slack 테스트 시작:', userEmail)
+    const mentions = await SlackClient.getUnreadMentions(userEmail, 10)
+    const duration = Date.now() - startTime
+    
+    return NextResponse.json({
+      success: true,
+      service: 'Slack API',
+      duration: duration,
+      data: {
+        mentionCount: mentions.length,
+        mentions: mentions.map(mention => ({
+          channel: mention.channelName,
+          user: mention.userName,
+          text: mention.text.substring(0, 100) + (mention.text.length > 100 ? '...' : ''),
+          timestamp: mention.timestamp,
+          timeAgo: new Date(parseFloat(mention.timestamp) * 1000).toISOString()
+        })),
+        channels: Array.from(new Set(mentions.map(m => m.channelName))),
+        users: Array.from(new Set(mentions.map(m => m.userName)))
+      }
+    })
+  } catch (error: any) {
+    const duration = Date.now() - startTime
+    
+    return NextResponse.json({
+      success: false,
+      service: 'Slack API',
+      duration: duration,
+      error: error.message || 'Slack API 테스트 실패',
+      stack: error.stack
+    }, { status: 500 })
+  }
+}
+
 async function testSession(session: any) {
   return NextResponse.json({
     success: true,
@@ -183,6 +226,22 @@ async function testAllAPIs(userEmail: string, session: any) {
   } catch (error) {
     results.push({
       service: 'Gmail',
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+  
+  // Slack 테스트
+  try {
+    const slackResult = await testSlackAPI(userEmail)
+    const slackData = await slackResult.json()
+    results.push({
+      service: 'Slack',
+      ...slackData
+    })
+  } catch (error) {
+    results.push({
+      service: 'Slack',
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
     })

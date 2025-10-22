@@ -8,6 +8,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/backend/lib/auth'
 import { UserService } from '@/backend/services/user.service'
 import { PersonaService } from '@/backend/services/persona.service'
+import { prisma } from '@/backend/lib/prisma'
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,13 +19,31 @@ export async function GET(request: NextRequest) {
 
     const userSettings = await UserService.getUserSettings(session.user.email)
     const persona = await PersonaService.getPersona(session.user.email)
-    const isAdmin = await UserService.isAdmin(session.user.email)
+    // const isAdmin = await UserService.isAdmin(session.user.email) // 임시로 주석 처리
+
+    // 연결된 서비스 정보 가져오기
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      include: {
+        connectedServices: {
+          select: {
+            id: true,
+            serviceName: true,
+            expiresAt: true,
+            metadata: true,
+            createdAt: true,
+            updatedAt: true,
+          }
+        }
+      }
+    })
 
     const settings = {
       interests: persona?.interests || [],
-      isAdmin,
-      referralCode: userSettings?.referralCode || null,
-      referralCount: userSettings?.referralCount || 0
+      isAdmin: false, // 임시로 false 설정
+      referralCode: null, // 데이터베이스에 없으므로 null
+      referralCount: 0, // 데이터베이스에 없으므로 0
+      connectedServices: user?.connectedServices || []
     }
 
     return NextResponse.json({ settings })
@@ -62,6 +81,42 @@ export async function POST(request: NextRequest) {
     console.error('Error saving user settings:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to save user settings' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { serviceName } = await request.json()
+
+    if (!serviceName) {
+      return NextResponse.json({ error: 'Service name is required' }, { status: 400 })
+    }
+
+    // 연결된 서비스 삭제
+    await prisma.connectedService.deleteMany({
+      where: {
+        user: {
+          email: session.user.email
+        },
+        serviceName: serviceName
+      }
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: `${serviceName} 연동이 해제되었습니다.`
+    })
+  } catch (error: any) {
+    console.error('Error disconnecting service:', error)
+    return NextResponse.json(
+      { error: error.message || 'Failed to disconnect service' },
       { status: 500 }
     )
   }

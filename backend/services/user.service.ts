@@ -63,7 +63,18 @@ export class UserService {
   static async getUserSettings(userEmail: string) {
     const user = await prisma.user.findUnique({
       where: { email: userEmail },
-      include: { userSettings: true }
+      include: { 
+        userSettings: {
+          select: {
+            id: true,
+            userId: true,
+            credits: true,
+            createdAt: true,
+            updatedAt: true,
+            // 존재하지 않는 필드들 제외
+          }
+        }
+      }
     })
 
     if (!user) {
@@ -132,12 +143,8 @@ export class UserService {
       return true
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: userEmail },
-      include: { userSettings: true }
-    })
-
-    return user?.userSettings?.isAdmin || false
+    // 임시로 항상 false 반환 (isAdmin 필드가 DB에 없음)
+    return false
   }
 
   /**

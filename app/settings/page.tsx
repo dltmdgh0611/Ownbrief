@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Settings, LogOut, Trash2, Loader2, ArrowLeft, RefreshCw, User, Sparkles } from 'lucide-react'
+import { Settings, LogOut, Trash2, Loader2, ArrowLeft, RefreshCw, User, Sparkles, MessageSquare, FileText, CheckCircle, XCircle } from 'lucide-react'
 
 interface UserPersona {
   workStyle: string
@@ -15,6 +15,16 @@ interface UserPersona {
   confirmed: boolean
 }
 
+interface ConnectedService {
+  id: string
+  serviceName: string
+  accessToken: string
+  expiresAt: string | null
+  metadata: any
+  createdAt: string
+  updatedAt: string
+}
+
 export default function SettingsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -23,6 +33,10 @@ export default function SettingsPage() {
   const [isRegeneratingPersona, setIsRegeneratingPersona] = useState(false)
   const [isDeletingAccount, setIsDeletingAccount] = useState(false)
   const [message, setMessage] = useState('')
+  const [connectedServices, setConnectedServices] = useState<ConnectedService[]>([])
+  const [isLoadingServices, setIsLoadingServices] = useState(false)
+  const [isConnectingSlack, setIsConnectingSlack] = useState(false)
+  const [isConnectingNotion, setIsConnectingNotion] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -33,8 +47,60 @@ export default function SettingsPage() {
   useEffect(() => {
     if (session) {
       loadPersona()
+      loadConnectedServices()
     }
   }, [session])
+
+  useEffect(() => {
+    // URL 파라미터에서 성공/에러 메시지 처리
+    const urlParams = new URLSearchParams(window.location.search)
+    const success = urlParams.get('success')
+    const error = urlParams.get('error')
+
+        if (success) {
+          switch (success) {
+            case 'slack_connected':
+              setMessage('Slack 연동이 완료되었습니다!')
+              loadConnectedServices() // 서비스 목록 새로고침
+              break
+            case 'notion_connected':
+              setMessage('Notion 연동이 완료되었습니다!')
+              loadConnectedServices() // 서비스 목록 새로고침
+              break
+          }
+          setTimeout(() => setMessage(''), 5000)
+          // URL에서 파라미터 제거
+          window.history.replaceState({}, document.title, window.location.pathname)
+        }
+
+    if (error) {
+      switch (error) {
+        case 'unauthorized':
+          setMessage('인증이 필요합니다.')
+          break
+        case 'slack_auth_failed':
+          setMessage('Slack 인증에 실패했습니다.')
+          break
+        case 'notion_auth_failed':
+          setMessage('Notion 인증에 실패했습니다.')
+          break
+        case 'token_exchange_failed':
+          setMessage('토큰 교환에 실패했습니다.')
+          break
+        case 'user_info_failed':
+          setMessage('사용자 정보를 가져오는데 실패했습니다.')
+          break
+        case 'callback_failed':
+          setMessage('연동 처리 중 오류가 발생했습니다.')
+          break
+        default:
+          setMessage('알 수 없는 오류가 발생했습니다.')
+      }
+      setTimeout(() => setMessage(''), 5000)
+      // URL에서 파라미터 제거
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [])
 
   const loadPersona = async () => {
     try {
@@ -48,6 +114,89 @@ export default function SettingsPage() {
       console.error('Failed to load persona:', error)
     } finally {
       setIsLoadingPersona(false)
+    }
+  }
+
+  const loadConnectedServices = async () => {
+    try {
+      setIsLoadingServices(true)
+      const response = await fetch('/api/user/settings')
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Connected services data:', data.connectedServices)
+        setConnectedServices(data.connectedServices || [])
+      }
+    } catch (error) {
+      console.error('Failed to load connected services:', error)
+    } finally {
+      setIsLoadingServices(false)
+    }
+  }
+
+  const handleConnectSlack = async () => {
+    try {
+      setIsConnectingSlack(true)
+      setMessage('')
+      
+      // 환경 변수 확인
+      if (!process.env.NEXT_PUBLIC_SLACK_CLIENT_ID) {
+        setMessage('Slack Client ID가 설정되지 않았습니다. 환경 변수를 확인해주세요.')
+        return
+      }
+      
+      // Slack OAuth URL로 리다이렉트
+          const slackAuthUrl = `https://slack.com/oauth/v2/authorize?client_id=${process.env.NEXT_PUBLIC_SLACK_CLIENT_ID}&user_scope=channels:read,groups:read,im:read,mpim:read,users:read,channels:history,groups:history,im:history,mpim:history&redirect_uri=${encodeURIComponent(`${window.location.origin}/api/auth/slack/callback`)}`
+      
+      window.location.href = slackAuthUrl
+    } catch (error: any) {
+      console.error('Slack connection error:', error)
+      setMessage(`Slack 연동 실패: ${error.message}`)
+    } finally {
+      setIsConnectingSlack(false)
+    }
+  }
+
+  const handleConnectNotion = async () => {
+    try {
+      setIsConnectingNotion(true)
+      setMessage('')
+      
+      // Notion OAuth URL로 리다이렉트
+      const notionAuthUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(`${window.location.origin}/api/auth/notion/callback`)}`
+      
+      window.location.href = notionAuthUrl
+    } catch (error: any) {
+      console.error('Notion connection error:', error)
+      setMessage(`Notion 연동 실패: ${error.message}`)
+    } finally {
+      setIsConnectingNotion(false)
+    }
+  }
+
+  const handleDisconnectService = async (serviceName: string) => {
+    if (!confirm(`${serviceName} 연동을 해제하시겠습니까?`)) {
+      return
+    }
+
+    try {
+      const response = await fetch('/api/user/settings', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ serviceName }),
+      })
+
+      if (response.ok) {
+        setMessage(`${serviceName} 연동이 해제되었습니다.`)
+        setTimeout(() => setMessage(''), 3000)
+        loadConnectedServices() // 서비스 목록 새로고침
+      } else {
+        throw new Error('Failed to disconnect service')
+      }
+    } catch (error: any) {
+      console.error('Disconnect service error:', error)
+      setMessage(`${serviceName} 연동 해제 실패: ${error.message}`)
     }
   }
 
@@ -150,10 +299,18 @@ export default function SettingsPage() {
 
       {/* 메인 콘텐츠 */}
       <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* 성공 메시지 */}
+        {/* 성공/에러 메시지 */}
         {message && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-green-800 text-sm font-medium">{message}</p>
+          <div className={`mb-6 p-4 border rounded-lg ${
+            message.includes('완료') || message.includes('성공') 
+              ? 'bg-green-50 border-green-200' 
+              : 'bg-red-50 border-red-200'
+          }`}>
+            <p className={`text-sm font-medium ${
+              message.includes('완료') || message.includes('성공')
+                ? 'text-green-800'
+                : 'text-red-800'
+            }`}>{message}</p>
           </div>
         )}
 
@@ -225,6 +382,113 @@ export default function SettingsPage() {
               </>
             )}
           </button>
+        </div>
+
+        {/* 서비스 연동 섹션 */}
+        <div className="app-card p-6 mb-6">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+              <MessageSquare className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">서비스 연동</h2>
+              <p className="text-sm text-gray-600">Slack과 Notion을 연동하여 브리핑에 활용</p>
+            </div>
+          </div>
+
+          {isLoadingServices ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-brand" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Slack 연동 */}
+              <div className="p-4 border border-gray-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <MessageSquare className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">Slack</h3>
+                      <p className="text-sm text-gray-600">읽지 않은 멘션 메시지 수집</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {connectedServices.find(s => s.serviceName === 'slack') ? (
+                      <>
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                        <button
+                          onClick={() => handleDisconnectService('slack')}
+                          className="px-3 py-1 text-sm text-red-600 hover:text-red-700 font-medium"
+                        >
+                          해제
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={handleConnectSlack}
+                        disabled={isConnectingSlack}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                      >
+                        {isConnectingSlack ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>연결 중...</span>
+                          </>
+                        ) : (
+                          <span>연결하기</span>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Notion 연동 */}
+              <div className="p-4 border border-gray-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">Notion</h3>
+                      <p className="text-sm text-gray-600">최근 업데이트된 페이지 수집</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {connectedServices.find(s => s.serviceName === 'notion') ? (
+                      <>
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                        <button
+                          onClick={() => handleDisconnectService('notion')}
+                          className="px-3 py-1 text-sm text-red-600 hover:text-red-700 font-medium"
+                        >
+                          해제
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={handleConnectNotion}
+                        disabled={isConnectingNotion}
+                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                      >
+                        {isConnectingNotion ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>연결 중...</span>
+                          </>
+                        ) : (
+                          <span>연결하기</span>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 계정 설정 섹션 */}
