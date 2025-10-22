@@ -19,6 +19,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/settings?error=slack_auth_failed', process.env.NEXTAUTH_URL!))
     }
 
+    if (!code) {
+      console.error('No authorization code received')
+      return NextResponse.redirect(new URL('/settings?error=no_code', process.env.NEXTAUTH_URL!))
+    }
+
     console.log('Slack callback received:', {
       code: code,
       redirect_uri: `${process.env.NEXTAUTH_URL}api/auth/slack/callback`,

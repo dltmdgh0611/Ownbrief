@@ -81,21 +81,21 @@ export class UserService {
       throw new Error('사용자를 찾을 수 없습니다.')
     }
 
-    // 기존 사용자가 추천인 코드가 없으면 생성
-    if (user.userSettings && !user.userSettings.referralCode) {
-      const { generateUniqueReferralCode } = await import('../lib/referral')
-      const referralCode = await generateUniqueReferralCode()
-      
-      await prisma.userSettings.update({
-        where: { userId: user.id },
-        data: { referralCode }
-      })
-      
-      // 업데이트된 설정 반환
-      return await prisma.userSettings.findUnique({
-        where: { userId: user.id }
-      })
-    }
+    // 기존 사용자가 추천인 코드가 없으면 생성 (임시 비활성화)
+    // if (user.userSettings && !user.userSettings.referralCode) {
+    //   const { generateUniqueReferralCode } = await import('../lib/referral')
+    //   const referralCode = await generateUniqueReferralCode()
+    //   
+    //   await prisma.userSettings.update({
+    //     where: { userId: user.id },
+    //     data: { referralCode }
+    //   })
+    //   
+    //   // 업데이트된 설정 반환
+    //   return await prisma.userSettings.findUnique({
+    //     where: { userId: user.id }
+    //   })
+    // }
 
     return user.userSettings
   }
@@ -118,15 +118,15 @@ export class UserService {
       throw new Error('사용자를 찾을 수 없습니다.')
     }
 
-    // 신규 사용자의 경우 추천인 코드 생성
-    const { generateUniqueReferralCode } = await import('../lib/referral')
-    const referralCode = await generateUniqueReferralCode()
+    // 신규 사용자의 경우 추천인 코드 생성 (임시 비활성화)
+    // const { generateUniqueReferralCode } = await import('../lib/referral')
+    // const referralCode = await generateUniqueReferralCode()
 
     return await prisma.userSettings.upsert({
       where: { userId: user.id },
       create: {
-        userId: user.id,
-        referralCode
+        userId: user.id
+        // referralCode (임시 비활성화)
       },
       update: {
         updatedAt: new Date()
