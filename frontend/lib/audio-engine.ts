@@ -10,6 +10,11 @@ export class AudioEngine {
   private onEndCallback?: () => void
   private onStartCallback?: () => void
   private onPlaybackEndCallback?: () => void
+  private onTimeUpdateCallback?: (currentTime: number, duration: number) => void
+  private startTime: number = 0
+  private pauseTime: number = 0
+  private duration: number = 0
+  private animationFrameId: number | null = null
 
   constructor() {
     this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
@@ -109,12 +114,27 @@ export class AudioEngine {
           this.currentSource = null
         }
 
+        // 애니메이션 프레임 정리
+        if (this.animationFrameId !== null) {
+          cancelAnimationFrame(this.animationFrameId)
+          this.animationFrameId = null
+        }
+
         this.currentSource = this.audioContext.createBufferSource()
         this.currentSource.buffer = audioBuffer
         this.currentSource.connect(this.gainNode)
         
+        // 재생 시간 추적 설정
+        this.duration = audioBuffer.duration
+        this.startTime = this.audioContext.currentTime
+        this.pauseTime = 0
+        
         this.currentSource.onended = () => {
           this.currentSource = null
+          if (this.animationFrameId !== null) {
+            cancelAnimationFrame(this.animationFrameId)
+            this.animationFrameId = null
+          }
           this.onPlaybackEndCallback?.()
           resolve()
         }
@@ -122,11 +142,38 @@ export class AudioEngine {
         this.currentSource.start()
         this.onStartCallback?.()
         this.isPlaying = true
+        
+        // 재생 시간 추적 시작
+        this.trackPlayback()
       } catch (error) {
         console.error('Error playing audio buffer:', error)
         reject(error)
       }
     })
+  }
+
+  /**
+   * 재생 시간 추적
+   */
+  private trackPlayback() {
+    const updateTime = () => {
+      if (!this.isPlaying || !this.currentSource) {
+        return
+      }
+
+      const elapsed = this.audioContext.currentTime - this.startTime
+      const currentTime = Math.min(elapsed, this.duration)
+      
+      // 시간 업데이트 콜백 호출
+      this.onTimeUpdateCallback?.(currentTime, this.duration)
+      
+      // 재생이 끝나지 않았으면 계속 추적
+      if (currentTime < this.duration) {
+        this.animationFrameId = requestAnimationFrame(updateTime)
+      }
+    }
+    
+    this.animationFrameId = requestAnimationFrame(updateTime)
   }
 
   /**
@@ -194,6 +241,13 @@ export class AudioEngine {
   }
 
   /**
+   * 시간 업데이트 콜백 설정
+   */
+  onTimeUpdate(callback: (currentTime: number, duration: number) => void) {
+    this.onTimeUpdateCallback = callback
+  }
+
+  /**
    * 현재 재생 상태 반환
    */
   getPlayingStatus() {
@@ -204,6 +258,10 @@ export class AudioEngine {
    * 정리
    */
   dispose() {
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId)
+      this.animationFrameId = null
+    }
     this.stop()
     this.audioContext.close()
   }

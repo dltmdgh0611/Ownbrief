@@ -4,7 +4,6 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import Header from '@/frontend/components/Header'
-import BriefingPlayer from '@/frontend/components/BriefingPlayer'
 import { useOnboarding } from '@/frontend/hooks/useOnboarding'
 
 export default function Home() {
@@ -71,8 +70,28 @@ export default function Home() {
       </div>
       
       {/* 메인 콘텐츠 */}
-      <main className="flex-1 overflow-y-auto">
-        <BriefingPlayer userEmail={session.user.email!} />
+      <main className="flex-1 overflow-y-auto flex items-center justify-center">
+        <div className="text-center space-y-8">
+          <div className="flex flex-col items-center space-y-6">
+            <button
+              onClick={() => router.push('/briefing-player')}
+              className="w-32 h-32 rounded-full bg-gradient-to-r from-brand to-brand-light shadow-2xl hover:shadow-3xl active:scale-95 transition-all duration-200 flex items-center justify-center group"
+            >
+              <svg className="w-16 h-16 text-white ml-2 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </button>
+            
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold text-gray-900">
+                오늘의 브리핑
+              </h2>
+              <p className="text-gray-600">
+                재생 버튼을 눌러 맞춤 브리핑을 시작하세요
+              </p>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   )
