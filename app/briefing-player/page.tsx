@@ -65,6 +65,7 @@ export default function BriefingPlayerPage() {
   } | null>(null)
   const sectionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
   const scriptSectionsRef = useRef(scriptSections)
+  const sentenceRefs = useRef<{ [key: string]: HTMLSpanElement | null }>({})
 
   // 섹션 정의
   const sections = [
@@ -72,7 +73,9 @@ export default function BriefingPlayerPage() {
     { name: 'calendar', title: '오늘 일정', isStatic: false },
     { name: 'gmail', title: '중요 메일', isStatic: false },
     { name: 'work', title: '업무 진행(슬랙/노션 통합)', isStatic: false },
-    { name: 'interests', title: '관심사 비즈니스 뉴스레터', isStatic: false },
+    { name: 'trend1', title: '트렌드 1', isStatic: false },
+    { name: 'trend2', title: '트렌드 2', isStatic: false },
+    { name: 'trend3', title: '트렌드 3', isStatic: false },
     { name: 'outro', title: '마무리', isStatic: true }
   ]
 
@@ -194,7 +197,7 @@ export default function BriefingPlayerPage() {
       console.log(`🎙️ TTS 생성 시작: ${text.substring(0, 30)}...`)
       
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 60000)
+      const timeoutId = setTimeout(() => controller.abort(), 300000) // 5분 타임아웃
       
       const response = await fetch('/api/tts/generate', {
         method: 'POST',
@@ -289,6 +292,8 @@ export default function BriefingPlayerPage() {
       
       ttsPromise.then(async (audioBuffer) => {
         if (audioBuffer && !isStopped) {
+          console.log(`🎵 TTS 생성 완료! 섹션: ${section.title}, isVoicePlaying: ${isVoicePlayingRef.current}`)
+          
           if (isVoicePlayingRef.current) {
             console.log(`🎵 TTS 생성 완료! 현재 음성 재생 중 → 대기열 저장: ${section.title}`)
             pendingNextRef.current = {
@@ -354,6 +359,7 @@ export default function BriefingPlayerPage() {
     console.log(`🎤 섹션 ${endedIndex} 재생 종료`)
     
     const nextIndex = endedIndex + 1
+    console.log(`🔍 다음 섹션 인덱스: ${nextIndex}, pendingNext: ${pendingNextRef.current ? pendingNextRef.current.index : 'null'}`)
     
     if (nextIndex >= sections.length) {
       console.log('🎯 모든 섹션 재생 완료')
@@ -375,6 +381,7 @@ export default function BriefingPlayerPage() {
     isVoicePlayingRef.current = false
 
     if (pendingNextRef.current && pendingNextRef.current.index === nextIndex) {
+      console.log(`✅ pendingNext 일치! 섹션 ${nextIndex} 즉시 재생`)
       const next = pendingNextRef.current
       pendingNextRef.current = null
 
@@ -410,6 +417,8 @@ export default function BriefingPlayerPage() {
         setIsStopped(true)
         setIsGenerating(false)
       }
+    } else {
+      console.warn(`⚠️ pendingNext 불일치 또는 없음! nextIndex: ${nextIndex}, pendingNext: ${pendingNextRef.current ? pendingNextRef.current.index : 'null'}`)
     }
   }, [isStopped, sections])
 
@@ -641,6 +650,21 @@ ${dateStr} 브리핑을 시작하겠습니다.`
   useEffect(() => {
     if (status === 'authenticated' && !hasStartedRef.current) {
       hasStartedRef.current = true
+      
+      // 백그라운드로 트렌드 키워드 미리 생성
+      const preloadTrends = async () => {
+        try {
+          await fetch('/api/briefing/preload-trends', {
+            method: 'POST'
+          })
+          console.log('🔨 백그라운드 트렌드 키워드 생성 시작')
+        } catch (error) {
+          console.error('Preload trends error:', error)
+        }
+      }
+
+      preloadTrends()
+
       console.log('🚀 브리핑 자동 시작 예약')
       // 약간의 딜레이 후 자동 시작
       const timer = setTimeout(() => {
@@ -662,6 +686,19 @@ ${dateStr} 브리핑을 시작하겠습니다.`
       })
     }
   }, [currentSection])
+
+  // 하이라이트된 문장으로 자동 스크롤
+  useEffect(() => {
+    const highlightedSentence = document.querySelector('span.bg-yellow-300, span.bg-yellow-200')
+    if (highlightedSentence) {
+      console.log('📍 하이라이트 문장으로 스크롤')
+      highlightedSentence.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest'
+      })
+    }
+  }, [currentPlayingIndex, currentSection, scriptSections])
 
   if (status === 'loading') {
     return (
@@ -964,4 +1001,5 @@ ${dateStr} 브리핑을 시작하겠습니다.`
     </div>
   )
 }
+
 

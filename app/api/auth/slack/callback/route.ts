@@ -24,9 +24,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/settings?error=no_code', process.env.NEXTAUTH_URL!))
     }
 
+    const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, '') || '' // 끝의 슬래시 제거
+    const redirectUri = `${baseUrl}/api/auth/slack/callback`
+    
     console.log('Slack callback received:', {
       code: code,
-      redirect_uri: `${process.env.NEXTAUTH_URL}api/auth/slack/callback`,
+      redirect_uri: redirectUri,
       client_id: process.env.SLACK_CLIENT_ID
     })
 
@@ -40,7 +43,7 @@ export async function GET(request: NextRequest) {
         client_id: process.env.SLACK_CLIENT_ID!,
         client_secret: process.env.SLACK_CLIENT_SECRET!,
         code: code,
-        redirect_uri: `${process.env.NEXTAUTH_URL}api/auth/slack/callback`,
+        redirect_uri: redirectUri,
       }),
     })
 
@@ -77,6 +80,7 @@ export async function GET(request: NextRequest) {
         accessToken: tokenData.authed_user?.access_token || tokenData.access_token,
         refreshToken: tokenData.authed_user?.refresh_token || tokenData.refresh_token || null,
         expiresAt: tokenData.authed_user?.expires_in ? new Date(Date.now() + tokenData.authed_user.expires_in * 1000) : null,
+        enabled: true, // 연결 시 자동 활성화
         metadata: {
           teamId: tokenData.team?.id,
           teamName: tokenData.team?.name,
@@ -92,6 +96,7 @@ export async function GET(request: NextRequest) {
         accessToken: tokenData.authed_user?.access_token || tokenData.access_token,
         refreshToken: tokenData.authed_user?.refresh_token || tokenData.refresh_token || null,
         expiresAt: tokenData.authed_user?.expires_in ? new Date(Date.now() + tokenData.authed_user.expires_in * 1000) : null,
+        enabled: true, // 연결 시 자동 활성화
         metadata: {
           teamId: tokenData.team?.id,
           teamName: tokenData.team?.name,

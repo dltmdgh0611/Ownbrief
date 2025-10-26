@@ -8,6 +8,15 @@ export interface YoutubePlaylist {
   itemCount: number
 }
 
+export interface YoutubeVideo {
+  id: string
+  title: string
+  description: string
+  channelTitle: string
+  publishedAt: string
+  thumbnailUrl?: string
+}
+
 /**
  * YouTube API 클라이언트
  */
@@ -44,6 +53,80 @@ export class YouTubeClient {
       }))
     } catch (error) {
       console.error('YouTube API error:', error)
+      return []
+    }
+  }
+
+  /**
+   * 최근 저장한 영상 가져오기 (여러 플레이리스트에서)
+   */
+  static async getRecentSavedVideos(userEmail: string, maxVideos = 5): Promise<YoutubeVideo[]> {
+    try {
+      const accessToken = await this.getAccessToken(userEmail)
+      if (!accessToken) {
+        console.log('YouTube: No access token found')
+        return []
+      }
+
+      const youtube = google.youtube({ version: 'v3' })
+      const auth = new google.auth.OAuth2()
+      auth.setCredentials({ access_token: accessToken })
+
+      const allVideos: YoutubeVideo[] = []
+
+      // 1. 사용자의 플레이리스트 가져오기
+      const playlists = await this.getUserPlaylists(userEmail, 10)
+
+      // 2. 각 플레이리스트에서 최신 영상 가져오기
+      for (const playlist of playlists) {
+        try {
+          const playlistItems = await youtube.playlistItems.list({
+            auth,
+            part: ['snippet', 'contentDetails'],
+            playlistId: playlist.id,
+            maxResults: 3, // 각 플레이리스트에서 최대 3개
+          })
+
+          const items = playlistItems.data.items || []
+          
+          items.forEach(item => {
+            const snippet = item.snippet
+            if (snippet?.title && snippet.title !== 'Private video' && snippet.title !== 'Deleted video') {
+              allVideos.push({
+                id: item.contentDetails?.videoId || item.id || '',
+                title: snippet.title,
+                description: snippet.description || '',
+                channelTitle: snippet.channelTitle || '',
+                publishedAt: snippet.publishedAt || '',
+                thumbnailUrl: snippet.thumbnails?.default?.url || undefined,
+              })
+            }
+          })
+
+          if (allVideos.length >= maxVideos * 2) {
+            break // 충분히 모았으면 중단
+          }
+        } catch (error) {
+          console.error(`Error fetching playlist ${playlist.id}:`, error)
+          continue
+        }
+      }
+
+      // 3. 게시 날짜 기준으로 정렬 (최신순)
+      allVideos.sort((a, b) => 
+        new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+      )
+
+      // 4. 중복 제거 (동일한 videoId)
+      const uniqueVideos = Array.from(
+        new Map(allVideos.map(v => [v.id, v])).values()
+      )
+
+      console.log(`✅ Found ${uniqueVideos.length} recent videos from playlists`)
+
+      return uniqueVideos.slice(0, maxVideos)
+    } catch (error) {
+      console.error('YouTube getRecentSavedVideos error:', error)
       return []
     }
   }

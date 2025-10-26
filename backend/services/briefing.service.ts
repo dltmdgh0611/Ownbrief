@@ -149,7 +149,60 @@ export class BriefingService {
   }
 
   /**
-   * 모든 서비스에서 데이터 병렬 수집
+   * 사용자의 연결된 서비스 목록 가져오기
+   */
+  static async getEnabledServices(userEmail: string): Promise<Set<string>> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { email: userEmail },
+        include: {
+          connectedServices: {
+            select: {
+              serviceName: true,
+              accessToken: true,
+            }
+          }
+        }
+      })
+
+      const enabledServices = new Set<string>()
+      if (user?.connectedServices) {
+        // accessToken이 있는 서비스만 필터링
+        user.connectedServices
+          .filter(service => service.accessToken && service.accessToken.length > 0)
+          .forEach(service => {
+            enabledServices.add(service.serviceName)
+          })
+      }
+
+      // Google 서비스가 연결되어 있으면 gmail, calendar, youtube 추가
+      const hasGoogleService = user?.connectedServices?.some(s => 
+        (s.serviceName === 'gmail' || s.serviceName === 'calendar' || s.serviceName === 'youtube') 
+        && s.accessToken && s.accessToken.length > 0
+      )
+      if (hasGoogleService) {
+        enabledServices.add('gmail')
+        enabledServices.add('calendar')
+        enabledServices.add('youtube')
+      }
+
+      // Notion 워크스페이스가 하나라도 연결되어 있으면 notion 추가
+      const hasNotionService = user?.connectedServices?.some(s => 
+        s.serviceName.startsWith('notion') && s.accessToken && s.accessToken.length > 0
+      )
+      if (hasNotionService) {
+        enabledServices.add('notion')
+      }
+
+      return enabledServices
+    } catch (error) {
+      console.error('Error getting enabled services:', error)
+      return new Set()
+    }
+  }
+
+  /**
+   * 모든 서비스에서 데이터 병렬 수집 (enabled된 서비스만)
    */
   static async collectData(userEmail: string): Promise<BriefingData> {
     console.log('📊 Collecting data from all services...')
@@ -157,21 +210,28 @@ export class BriefingService {
     // 페르소나 먼저 가져오기
     const persona = await PersonaService.getPersona(userEmail)
 
-    // 모든 서비스에서 병렬 데이터 수집
-    const [calendarResult, gmailResult, slackResult, notionResult, youtubeResult] = 
-      await Promise.allSettled([
-        CalendarClient.getTodayEvents(userEmail, 10),
-        GmailClient.analyzeRecentEmails(userEmail),
-        SlackClient.getUnreadMentions(userEmail, 20),
-        NotionClient.analyzeWorkStyle(userEmail),
-        this.getYouTubeInterests(userEmail, 3),
-      ])
+    // enabled된 서비스 확인
+    const enabledServices = await this.getEnabledServices(userEmail)
+    console.log('✅ Enabled services:', Array.from(enabledServices))
 
-    const calendar = calendarResult.status === 'fulfilled' ? calendarResult.value || [] : []
-    const gmail = gmailResult.status === 'fulfilled' ? gmailResult.value?.realInterests || [] : []
-    const slack = slackResult.status === 'fulfilled' ? slackResult.value || [] : []
-    const notion = notionResult.status === 'fulfilled' ? notionResult.value || [] : []
-    const youtube = youtubeResult.status === 'fulfilled' ? youtubeResult.value : []
+    // enabled된 서비스만 데이터 수집
+    const promises = [
+      (enabledServices.has('calendar') || enabledServices.has('google')) ? CalendarClient.getTodayEvents(userEmail, 10).catch(() => null) : Promise.resolve(null),
+      (enabledServices.has('gmail') || enabledServices.has('google')) ? GmailClient.analyzeRecentEmails(userEmail).catch(() => null) : Promise.resolve(null),
+      enabledServices.has('slack') ? SlackClient.getUnreadMentions(userEmail, 20).catch(() => null) : Promise.resolve(null),
+      enabledServices.has('notion') ? NotionClient.analyzeAllWorkspaces(userEmail).catch(() => null) : Promise.resolve(null),
+      Promise.resolve([]), // YouTube 트렌드는 interests 섹션에서 별도로 처리
+    ]
+
+    const results = await Promise.allSettled(promises)
+
+    // 결과 매핑
+    const calendar = results[0].status === 'fulfilled' && results[0].value ? results[0].value : []
+    const gmailResult = results[1].status === 'fulfilled' && results[1].value ? results[1].value : null
+    const gmail = gmailResult && typeof gmailResult === 'object' && 'realInterests' in gmailResult ? gmailResult.realInterests || [] : []
+    const slack = results[2].status === 'fulfilled' && results[2].value ? results[2].value : []
+    const notion = results[3].status === 'fulfilled' && results[3].value ? results[3].value : []
+    const youtube = results[4].status === 'fulfilled' && results[4].value ? results[4].value : []
 
     console.log('📈 Data collection summary:', {
       calendar: Array.isArray(calendar) ? calendar.length : 0,
@@ -192,33 +252,247 @@ export class BriefingService {
   }
 
   /**
+   * 오늘의 트렌드 키워드 가져오기 또는 생성
+   */
+  static async getOrCreateDailyTrendKeywords(userEmail: string): Promise<Array<{
+    keyword: { level1: string, level2: string, level3: string },
+    news: string,
+    script: string
+  }>> {
+    try {
+      console.log('🔍 오늘의 트렌드 키워드 확인 중...')
+
+      // 사용자 조회
+      const user = await prisma.user.findUnique({
+        where: { email: userEmail }
+      })
+
+      if (!user) {
+        throw new Error('User not found')
+      }
+
+      // 오늘 만료되지 않은 키워드 조회
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000)
+
+      // 오늘 생성된 키워드 조회 (Raw SQL)
+      const existingKeywords = await prisma.$queryRaw<any[]>`
+        SELECT * FROM "DailyTrendKeywords"
+        WHERE "userId" = ${user.id}
+          AND "createdAt" >= ${today}
+          AND "createdAt" < ${tomorrow}
+        ORDER BY "createdAt" DESC
+        LIMIT 1
+      `
+
+      if (existingKeywords && existingKeywords.length > 0) {
+        console.log('✅ 기존 키워드 사용')
+        const keywords = existingKeywords[0].keywords as any[]
+        
+        // 각 키워드에 대해 뉴스와 스크립트 생성
+        console.log('🔍 키워드별 뉴스 검색 및 스크립트 생성 중...')
+        const topics = []
+        for (const keyword of keywords) {
+          try {
+            const news = await this.searchNewsForKeyword(keyword)
+            const script = await this.generateScriptForKeyword(keyword, news)
+            topics.push({ keyword, news, script })
+            console.log(`✅ 키워드 처리 완료: ${keyword.level1} > ${keyword.level2} > ${keyword.level3}`)
+          } catch (error) {
+            console.error(`❌ 키워드 처리 오류 (${keyword.level1}):`, error)
+            topics.push({ keyword, news: '', script: '' })
+          }
+        }
+        
+        return topics
+      }
+
+      console.log('⚠️ 키워드가 없음 - 빈 배열 반환')
+      return []
+    } catch (error) {
+      console.error('❌ getOrCreateDailyTrendKeywords error:', error)
+      throw new Error('Failed to get or create trend keywords')
+    }
+  }
+
+  /**
+   * 트렌드 키워드 백그라운드 생성 및 DB 저장
+   */
+  static async generateAndSaveTrendKeywords(userEmail: string): Promise<void> {
+    try {
+      console.log('🔨 백그라운드 키워드 생성 시작...')
+
+      const user = await prisma.user.findUnique({
+        where: { email: userEmail }
+      })
+
+      if (!user) {
+        throw new Error('User not found')
+      }
+
+      // 오늘 이미 생성된 키워드가 있는지 확인
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+      const existing = await prisma.$queryRaw<any[]>`
+        SELECT * FROM "DailyTrendKeywords"
+        WHERE "userId" = ${user.id}
+          AND "createdAt" >= ${today}
+        LIMIT 1
+      `
+
+      if (existing && existing.length > 0) {
+        console.log('✅ 이미 오늘 키워드가 생성됨')
+        return
+      }
+
+      // 키워드만 추출 (뉴스/스크립트는 브리핑 시에만 생성)
+      const keywords = await this.extractKeywordsOnly(userEmail)
+      
+      if (keywords.length === 0) {
+        console.log('⚠️ 키워드 추출 실패 - 저장하지 않음')
+        return
+      }
+
+      // DB에 저장 (Raw SQL)
+      const expiresAt = new Date(today.getTime() + 24 * 60 * 60 * 1000)
+
+      await prisma.$executeRaw`
+        INSERT INTO "DailyTrendKeywords" (id, "userId", keywords, "createdAt", "expiresAt")
+        VALUES (gen_random_uuid()::text, ${user.id}, ${JSON.stringify(keywords)}::jsonb, ${today}, ${expiresAt})
+      `
+
+      console.log('✅ 키워드 생성 및 저장 완료')
+    } catch (error) {
+      console.error('❌ 백그라운드 키워드 생성 오류:', error)
+    }
+  }
+
+  /**
+   * 키워드만 추출 (뉴스/스크립트 생성 없음)
+   */
+  static async extractKeywordsOnly(userEmail: string): Promise<Array<{ level1: string, level2: string, level3: string }>> {
+    try {
+      const { YouTubeClient } = await import('@/backend/lib/youtube')
+      const { extractDeepKeywords } = await import('@/backend/lib/gemini')
+      
+      console.log('🔍 키워드 추출 시작...')
+
+      // 1. YouTube 최근 저장 영상 5개 가져오기
+      const recentVideos = await YouTubeClient.getRecentSavedVideos(userEmail, 5)
+      if (recentVideos.length === 0) {
+        console.log('⚠️ YouTube 영상 없음')
+        return []
+      }
+
+      // 2. 페르소나 가져오기
+      const persona = await PersonaService.getPersona(userEmail)
+      const personaInterests = persona?.interests || []
+
+      // 3. 키워드 추출 (YouTube 70% + 페르소나 30%)
+      const keywords = await extractDeepKeywords(
+        recentVideos.map(v => ({ title: v.title, description: v.description })),
+        personaInterests
+      )
+
+      console.log(`✅ ${keywords.length}개 트렌드 키워드 추출 완료`)
+      return keywords
+    } catch (error) {
+      console.error('❌ 키워드 추출 오류:', error)
+      return []
+    }
+  }
+
+  /**
+   * 개별 키워드 뉴스 검색
+   */
+  static async searchNewsForKeyword(keyword: { level1: string, level2: string, level3: string }): Promise<string> {
+    const { searchNewsWithGrounding } = await import('@/backend/lib/gemini')
+    return await searchNewsWithGrounding(keyword)
+  }
+
+  /**
+   * 개별 키워드 대본 생성
+   */
+  static async generateScriptForKeyword(keyword: { level1: string, level2: string, level3: string }, news: string): Promise<string> {
+    const { generateTrendScript } = await import('@/backend/lib/gemini')
+    return await generateTrendScript(keyword, news, '일반적인 스타일')
+  }
+
+  /**
+   * YouTube와 페르소나 기반 트렌드 주제 3개 생성
+   */
+  static async generateTrendTopics(userEmail: string): Promise<Array<{
+    keyword: { level1: string, level2: string, level3: string },
+    news: string,
+    script: string
+  }>> {
+    try {
+      const { YouTubeClient } = await import('@/backend/lib/youtube')
+      const { extractDeepKeywords, searchNewsWithGrounding, generateTrendScript } = await import('@/backend/lib/gemini')
+      
+      console.log('🔍 트렌드 주제 생성 시작...')
+
+      // 1. YouTube 최근 저장 영상 5개 가져오기
+      const recentVideos = await YouTubeClient.getRecentSavedVideos(userEmail, 5)
+      if (recentVideos.length === 0) {
+        console.log('⚠️ YouTube 영상 없음 - 트렌드 섹션 skip')
+        return []
+      }
+
+      // 2. 페르소나 가져오기
+      const persona = await PersonaService.getPersona(userEmail)
+      const personaInterests = persona?.interests || []
+
+      // 3. 키워드 추출 (YouTube 70% + 페르소나 30%)
+      const keywords = await extractDeepKeywords(
+        recentVideos.map(v => ({ title: v.title, description: v.description })),
+        personaInterests
+      )
+
+      console.log(`✅ ${keywords.length}개 트렌드 키워드 추출 완료`)
+
+      // 4. 각 키워드에 대해 뉴스 검색 및 대본 생성
+      const trendTopics = []
+      for (const keyword of keywords) {
+        try {
+          // Grounding으로 최신 뉴스 검색
+          const news = await searchNewsWithGrounding(keyword)
+          
+          // 대본 생성
+          const personaStyle = persona?.workStyle || '일반적인 스타일'
+          const script = await generateTrendScript(keyword, news, personaStyle)
+
+          trendTopics.push({
+            keyword,
+            news,
+            script
+          })
+
+          console.log(`✅ 트렌드 주제 생성 완료: ${keyword.level1} > ${keyword.level2} > ${keyword.level3}`)
+        } catch (error) {
+          console.error(`트렌드 주제 생성 오류 (${keyword.level1}):`, error)
+          // 오류 발생 시 해당 주제는 건너뛰기
+          continue
+        }
+      }
+
+      return trendTopics
+    } catch (error) {
+      console.error('❌ generateTrendTopics error:', error)
+      return []
+    }
+  }
+
+  /**
+   * @deprecated - 새로운 generateTrendTopics 사용
    * YouTube 관심사 추출
    */
   static async getYouTubeInterests(userEmail: string, limit = 3): Promise<any[]> {
-    try {
-      const user = await prisma.user.findUnique({
-        where: { email: userEmail },
-        include: {
-          accounts: true,
-          userPersona: true,
-        },
-      })
-
-      if (!user) return []
-
-      const googleAccount = user.accounts.find(a => a.provider === 'google')
-      if (!googleAccount?.access_token) return []
-
-      // 관심사 기반으로 추천 영상 검색 (간단히 구현)
-      const interests = user.userPersona?.interests || []
-      if (interests.length === 0) return []
-
-      // 추후 구현: YouTube 추천 영상 가져오기
-      return []
-    } catch (error) {
-      console.error('YouTube interests error:', error)
-      return []
-    }
+    // 하위 호환성을 위해 유지
+    const topics = await this.generateTrendTopics(userEmail)
+    return topics.map(t => t.keyword)
   }
 
   /**
@@ -397,6 +671,7 @@ ${data && data.length > 0 ? JSON.stringify(data, null, 2) : '일정이 없습니
 - 중요한 일정 우선 언급
 - 시간 순서대로 정리
 - 여러 캘린더의 일정이 있다면 캘린더별로 구분해서 언급
+- **절대로 참석자 이름이나 이메일은 언급하지 마세요. 일정명과 시간만 브리핑하세요**
 - 마지막에 "메일에도 확인할 게 몇 가지 있네요."와 같이 다음 섹션(메일)로 넘어가는 연결 문장 1문장 포함
 - 총 25~35초 분량으로 간결하게
 
@@ -447,7 +722,20 @@ ${data && data.length > 0 ? JSON.stringify(data, null, 2) : '업데이트된 작
 
 브리핑을 작성하세요:`
 
+      case 'trend1':
+      case 'trend2':
+      case 'trend3':
+        // 키워드 기반 처리 - 이미 생성된 스크립트 반환
+        if (data && data.keyword && data.script && data.script !== '') {
+          console.log(`✅ 이미 생성된 트렌드 스크립트 사용: ${data.keyword.level1}`)
+          return data.script
+        }
+        
+        return '트렌드 정보를 불러오는 중입니다.'
+
       case 'interests':
+        
+        // 페르소나 기반 폴백 (구형 방식)
         return `지시: 모든 문장은 자연스러운 한국어(존댓말)로만 작성하고, 불필요한 영어 표현을 사용하지 마세요.
 "${userName}님의 관심사 트렌드"를 브리핑하세요. 
 외부 검색이나 RSS 같은 추가 호출 없이, **모델이 가진 일반 지식**과 "사용자 페르소나의 관심 키워드"를 바탕으로 **비즈니스 관련 최신 경향을 일반화하여** 설명합니다. 

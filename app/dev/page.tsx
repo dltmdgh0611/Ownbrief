@@ -73,6 +73,11 @@ export default function DevPage() {
       name: 'Interlude 음악',
       endpoint: '/api/music/interlude',
       method: 'GET'
+    },
+    {
+      name: '트렌드 뉴스레터 생성',
+      endpoint: '/api/dev/trend-newsletter',
+      method: 'GET'
     }
   ]
 

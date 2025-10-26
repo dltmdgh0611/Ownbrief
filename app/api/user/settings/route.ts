@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             serviceName: true,
+            accessToken: true,
             expiresAt: true,
             metadata: true,
             createdAt: true,
@@ -46,7 +47,10 @@ export async function GET(request: NextRequest) {
       connectedServices: user?.connectedServices || []
     }
 
-    return NextResponse.json({ settings })
+    return NextResponse.json({ 
+      settings, 
+      connectedServices: user?.connectedServices || [] 
+    })
   } catch (error) {
     console.error('Error fetching user settings:', error)
     return NextResponse.json(

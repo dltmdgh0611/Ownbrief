@@ -50,6 +50,7 @@ model User {
   userSettings      UserSettings?
   userPersona       UserPersona?
   connectedServices ConnectedService[]
+  dailyTrendKeywords DailyTrendKeywords[]
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 }
@@ -108,10 +109,11 @@ model ConnectedService {
   id           String    @id @default(cuid())
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  serviceName  String // "google", "slack", "notion"
+  serviceName  String // "google", "slack", "notion", "gmail", "calendar", "youtube"
   accessToken  String    @db.Text
   refreshToken String?   @db.Text
   expiresAt    DateTime?
+  enabled      Boolean   @default(true) // 브리핑에 사용할지 여부
   metadata     Json? // 서비스별 추가 정보
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -129,4 +131,16 @@ model Briefing {
   dataSources Json // 사용된 데이터 소스 정보
   playCount   Int      @default(0)
   createdAt   DateTime @default(now())
+}
+
+model DailyTrendKeywords {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  keywords    Json     // 3개의 키워드 (level1, level2, level3)
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime // 만료 시간 (생성일 + 1일)
+
+  @@unique([userId, createdAt])
+  @@index([userId, expiresAt])
 }

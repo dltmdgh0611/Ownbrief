@@ -5,7 +5,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60 // 60초 타임아웃 - 관심사 섹션 등 긴 텍스트 대응
+export const maxDuration = 300 // 5분 타임아웃 - 트렌드 섹션 등 긴 텍스트 대응
 
 // PCM 데이터를 WAV 형식으로 변환하는 함수
 function convertPcmToWav(pcmBuffer: Buffer, sampleRate: number, channels: number = 1, bitsPerSample: number = 16): Buffer {
@@ -80,12 +80,12 @@ export async function POST(request: NextRequest) {
       }, { status: 503 })
     }
 
-    // 타임아웃 설정 (60초 - 관심사 섹션 등 긴 텍스트 대응)
+    // 타임아웃 설정 (5분 = 300초 - 트렌드 섹션 등 긴 텍스트 대응)
     const controller = new AbortController()
     const timeoutId = setTimeout(() => {
       controller.abort()
       console.error('⏱️ TTS 생성 타임아웃')
-    }, 60000)
+    }, 300000)
     
     try {
       // Gemini 2.5 Flash Preview TTS 모델 사용

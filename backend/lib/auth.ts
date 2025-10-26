@@ -84,6 +84,38 @@ export const authOptions: NextAuthOptions = {
               },
             })
             console.log('✅ Refresh token saved to DB for user:', user.id)
+            
+            // Google 로그인 시 ConnectedService 자동 생성 (gmail, calendar, youtube)
+            if (account.provider === 'google' && user.id) {
+              const googleServices = ['gmail', 'calendar', 'youtube']
+              for (const serviceName of googleServices) {
+                try {
+                  await prisma.connectedService.upsert({
+                    where: {
+                      userId_serviceName: {
+                        userId: user.id,
+                        serviceName: serviceName,
+                      }
+                    },
+                  create: {
+                    userId: user.id,
+                    serviceName: serviceName,
+                    accessToken: account.access_token || '',
+                    refreshToken: account.refresh_token || '',
+                    expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
+                  },
+                  update: {
+                    accessToken: account.access_token || '',
+                    refreshToken: account.refresh_token || '',
+                    expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
+                  }
+                  })
+                  console.log(`✅ ConnectedService created for ${serviceName}`)
+                } catch (error) {
+                  console.error(`❌ Failed to create ConnectedService for ${serviceName}:`, error)
+                }
+              }
+            }
           } catch (error) {
             console.error('❌ Failed to save refresh token to DB:', error)
           }

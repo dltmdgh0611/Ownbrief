@@ -281,6 +281,213 @@ export async function generateMultiSpeakerSpeech(script: string): Promise<AudioR
 
 // Gemini 네이티브 TTS는 다중 화자를 자동으로 처리하므로 별도의 파싱이나 결합이 필요 없습니다.
 
+/**
+ * YouTube 영상과 페르소나로부터 3단계 깊이의 세부 키워드 3개 추출
+ */
+export async function extractDeepKeywords(
+  videos: Array<{ title: string, description: string }>,
+  personaInterests: string[]
+): Promise<Array<{ level1: string, level2: string, level3: string }>> {
+  try {
+    console.log('🔍 키워드 추출 시작...')
+    console.log(`📹 YouTube 영상 개수: ${videos.length}`)
+    console.log(`👤 페르소나 키워드 개수: ${personaInterests.length}`)
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+
+    const videoTexts = videos.map((v, i) => 
+      `영상 ${i + 1}:\n제목: ${v.title}\n설명: ${v.description}`
+    ).join('\n\n')
+
+    const prompt = `
+다음 정보를 바탕으로 트렌드 브리핑에 사용할 3개의 세부 키워드를 추출해주세요.
+
+**YouTube 최근 영상 (70% 비중):**
+${videoTexts}
+
+**사용자 페르소나 관심사 (30% 비중):**
+${personaInterests.join(', ')}
+
+**요구사항:**
+1. YouTube 영상 내용에 70% 비중, 페르소나 관심사에 30% 비중을 두고 키워드 추출
+2. 3개의 키워드를 추출하되, 각 키워드는 3단계 깊이로 구체화
+3. 각 단계는 "대분류 > 중분류 > 소분류" 형태로 점점 세부화
+4. **매우 중요: level1 (대분류)가 겹치면 안됨. 각 키워드의 level1은 서로 달라야 함**
+5. 최근 트렌드나 뉴스 검색에 활용 가능한 구체적인 키워드로 작성
+6. JSON 형식으로만 응답 (다른 텍스트 없이)
+
+**예시 형식:**
+[
+  {
+    "level1": "경제",
+    "level2": "암호화폐",
+    "level3": "스테이블코인"
+  },
+  {
+    "level1": "IT",
+    "level2": "바이브코딩",
+    "level3": "MCP"
+  },
+  {
+    "level1": "인공지능",
+    "level2": "생성형 AI",
+    "level3": "멀티모달 모델"
+  }
+]
+
+JSON 배열만 반환해주세요:`
+
+    const result = await model.generateContent(prompt)
+    const response = result.response.text()
+    
+    console.log('📝 Gemini 응답:', response.substring(0, 500))
+
+    // JSON 파싱 (마크다운 코드 블록 제거)
+    let jsonText = response.trim()
+    if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    }
+
+    const keywords = JSON.parse(jsonText)
+    console.log('✅ 키워드 추출 완료:', keywords)
+
+    return keywords.slice(0, 3) // 정확히 3개만
+  } catch (error) {
+    console.error('❌ 키워드 추출 오류:', error)
+    throw new Error('키워드 추출에 실패했습니다.')
+  }
+}
+
+/**
+ * Google Search Function Calling으로 최신 뉴스 검색
+ */
+export async function searchNewsWithGrounding(
+  keyword: { level1: string, level2: string, level3: string }
+): Promise<string> {
+  try {
+    console.log(`🔎 Google Search 뉴스 검색: ${keyword.level1} > ${keyword.level2} > ${keyword.level3}`)
+
+    // Google Search Function Calling 설정
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash",
+      tools: [{
+        googleSearch: {} // Google Search 활성화
+      }] as any
+    })
+
+    const searchQuery = `${keyword.level1} ${keyword.level2} ${keyword.level3} 최신 뉴스`
+
+    const prompt = `
+다음 검색어로 최근 7일 이내의 실제 뉴스를 검색하고 요약해주세요:
+
+**검색어:** "${searchQuery}"
+
+**요구사항:**
+1. **실제 최신 뉴스만** (최근 7일 이내)
+2. 주요 뉴스 3-5개로 요약
+3. 각 뉴스의 출처, 날짜, 핵심 내용 포함
+4. 전체적인 트렌드 및 시사점 분석
+5. 뉴스레터 형식으로 작성 (200-500자)
+
+검색해서 나온 실제 뉴스를 기반으로 정리해주세요:`
+
+    console.log('🔍 Google Search Function Calling 시작...')
+    
+    const result = await model.generateContent(prompt)
+    
+    // Function Calling 사용 여부 확인
+    const functionCalls = result.response.functionCalls()
+    if (functionCalls && functionCalls.length > 0) {
+      console.log(`✅ Function Calling 실행됨 (${functionCalls.length}개)`)
+
+      // Function Calling 결과를 다시 모델에 전달
+      const followUpResponse = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        tools: [{ googleSearch: {} }] as any
+      })
+
+      const newsContent = followUpResponse.response.text()
+      console.log(`✅ 뉴스 검색 완료 (Function Calling): ${newsContent.length}자`)
+      console.log(`📰 미리보기: ${newsContent.substring(0, 200)}...`)
+
+      return newsContent
+    } else {
+      // Function Calling이 실행되지 않은 경우 기본 응답
+      const newsContent = result.response.text()
+      console.log(`✅ 뉴스 검색 완료: ${newsContent.length}자`)
+      console.log(`📰 미리보기: ${newsContent.substring(0, 200)}...`)
+
+      return newsContent
+    }
+  } catch (error) {
+    console.error('❌ Google Search 뉴스 검색 오류:', error)
+    throw new Error('뉴스 검색에 실패했습니다.')
+  }
+}
+
+/**
+ * 트렌드 주제별 대본 생성 (최신 뉴스 기반 뉴스레터)
+ */
+export async function generateTrendScript(
+  keyword: { level1: string, level2: string, level3: string },
+  newsContent: string,
+  personaStyle: string
+): Promise<string> {
+  try {
+    console.log(`✍️ 트렌드 대본 생성: ${keyword.level1} > ${keyword.level2} > ${keyword.level3}`)
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+
+    const prompt = `
+다음 정보를 바탕으로 트렌드 브리핑 대본을 작성해주세요.
+
+**주제:** ${keyword.level1} > ${keyword.level2} > ${keyword.level3}
+
+**최신 뉴스 (최근 7일 이내):**
+${newsContent}
+
+**요구사항:**
+1. **"~했습니다", "~입니다" 같은 존댓말 사용**
+2. 비서가 전달한다는 느낌의 평서문으로 작성
+3. **헤드라인, 발신, 수신, 날짜 등의 형식 금지. 순수 대본만 작성**
+4. 주제 소개 → 주요 뉴스 3-5개 요약 → 트렌드 분석 → 마무리
+5. **실제 뉴스 데이터만 사용**
+6. **반드시 300-500자 사이 (공백 포함)**
+7. 듣기 편한 자연스러운 문장
+
+**대본만 작성해주세요:**`
+
+    const result = await model.generateContent(prompt)
+    let script = result.response.text().trim()
+
+    // 300-500자 사이로 조정
+    if (script.length < 300) {
+      console.warn(`⚠️ 대본이 너무 짧음: ${script.length}자 (300자 미만)`)
+    } else if (script.length > 500) {
+      console.warn(`⚠️ 대본이 너무 김: ${script.length}자 (500자 초과) - 잘라냄`)
+      // 문장 단위로 자르기
+      const sentences = script.match(/[^.!?]+[.!?]+/g) || [script]
+      let trimmedScript = ''
+      for (const sentence of sentences) {
+        if (trimmedScript.length + sentence.length <= 500) {
+          trimmedScript += sentence
+        } else {
+          break
+        }
+      }
+      script = trimmedScript || script.substring(0, 500)
+    }
+
+    console.log(`✅ 대본 생성 완료: ${script.length}자`)
+    console.log(`📝 미리보기: ${script.substring(0, 100)}...`)
+
+    return script
+  } catch (error) {
+    console.error('❌ 트렌드 대본 생성 오류:', error)
+    throw new Error('대본 생성에 실패했습니다.')
+  }
+}
+
 export async function getAvailableVoices() {
   try {
     // Gemini 2.5 TTS에서 지원하는 음성 목록 반환

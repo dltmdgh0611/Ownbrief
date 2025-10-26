@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { BriefingService } from '@/backend/services/briefing.service'
 import { CalendarClient } from '@/backend/lib/calendar'
 import { GmailClient } from '@/backend/lib/gmail'
+import { SlackClient } from '@/backend/lib/slack'
+import { NotionClient } from '@/backend/lib/notion'
 import { PersonaService } from '@/backend/services/persona.service'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/backend/lib/auth'
+import { prisma } from '@/backend/lib/prisma'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -43,7 +46,9 @@ export async function POST(request: NextRequest) {
       { name: 'calendar', title: '오늘 일정' },
       { name: 'gmail', title: '중요 메일' },
       { name: 'work', title: '업무 진행 상황' },
-      { name: 'interests', title: '관심사 트렌드' },
+      { name: 'trend1', title: '트렌드 1' },
+      { name: 'trend2', title: '트렌드 2' },
+      { name: 'trend3', title: '트렌드 3' },
       { name: 'outro', title: '마무리' },
     ]
 
@@ -87,28 +92,68 @@ export async function POST(request: NextRequest) {
           data = await GmailClient.getUnreadImportant(userEmail, 5)
           break
         case 'work': {
-          // 슬랙/노션 통합 (연동 여부에 따라 스킵 가능하도록 빈 배열 반환 허용)
+          // 슬랙/노션 통합
+          console.log('🔄 슬랙/노션 데이터 수집 시작...')
           const [slackData, notionData] = await Promise.allSettled([
-            (async () => {
-              try { return await BriefingService.collectData(userEmail).then(d => d.slack) } catch { return [] }
-            })(),
-            (async () => {
-              try { return await BriefingService.collectData(userEmail).then(d => d.notion) } catch { return [] }
-            })(),
+            SlackClient.getUnreadMentions(userEmail, 20).catch(() => []),
+            NotionClient.analyzeAllWorkspaces(userEmail).catch(() => []),
           ])
           data = {
             slack: slackData.status === 'fulfilled' ? slackData.value : [],
             notion: notionData.status === 'fulfilled' ? notionData.value : [],
           }
+          console.log(`✅ 슬랙/노션 데이터 수집 완료: slack=${data.slack?.length || 0}, notion=${data.notion?.length || 0}`)
           break
         }
-        case 'interests':
-          // 페르소나의 관심 키워드를 기반으로 뉴스 검색 (현재는 프롬프트만 사용)
-          data = {
-            interests: persona?.interests || [],
-            // 실제 뉴스 데이터는 AI 모델이 생성하도록 프롬프트에 위임
+        case 'trend1':
+        case 'trend2':
+        case 'trend3': {
+          // 키워드 기반 뉴스 검색 및 스크립트 생성
+          const trendIndex = parseInt(nextSection.name.replace('trend', '')) - 1
+          console.log(`🔍 트렌드 ${trendIndex + 1} 키워드만 처리 중...`)
+          
+          try {
+            // DB에서 키워드만 가져오기 (뉴스/스크립트 생성 안함)
+            const user = await prisma.user.findUnique({ where: { email: userEmail } })
+            if (!user) {
+              data = { skip: true }
+              break
+            }
+
+            const now = new Date()
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+            const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000)
+
+            const existingKeywords = await prisma.$queryRaw<any[]>`
+              SELECT * FROM "DailyTrendKeywords"
+              WHERE "userId" = ${user.id}
+                AND "createdAt" >= ${today}
+                AND "createdAt" < ${tomorrow}
+              ORDER BY "createdAt" DESC
+              LIMIT 1
+            `
+
+            if (!existingKeywords || existingKeywords.length === 0 || trendIndex >= existingKeywords[0].keywords.length) {
+              console.log('⚠️ 키워드 없음 또는 인덱스 초과')
+              data = { skip: true }
+            } else {
+              // 해당 키워드만 처리
+              const keyword = existingKeywords[0].keywords[trendIndex]
+              console.log(`📌 키워드 처리: ${keyword.level1} > ${keyword.level2} > ${keyword.level3}`)
+              
+              // 뉴스 검색 및 스크립트 생성
+              const news = await BriefingService.searchNewsForKeyword(keyword)
+              const script = await BriefingService.generateScriptForKeyword(keyword, news)
+              
+              data = { keyword, news, script }
+              console.log(`✅ 트렌드 ${trendIndex + 1} 완료: ${script.length}자`)
+            }
+          } catch (error) {
+            console.error('❌ 트렌드 키워드 처리 오류:', error)
+            data = { skip: true }
           }
           break
+        }
         case 'outro':
           // 마무리 섹션은 정적 스크립트
           data = null
@@ -119,11 +164,18 @@ export async function POST(request: NextRequest) {
 
       clearTimeout(timeoutId)
 
-      const sectionScript = await BriefingService.generateSectionScript(
-        nextSection.name, 
-        data, 
-        persona // persona 전달
-      )
+      // trend 섹션은 이미 스크립트가 준비되어 있음
+      let sectionScript
+      if (nextSection.name.startsWith('trend') && data && data.script) {
+        sectionScript = data.script
+        console.log(`✅ 트렌드 스크립트 직접 사용: ${sectionScript.length}자`)
+      } else {
+        sectionScript = await BriefingService.generateSectionScript(
+          nextSection.name, 
+          data, 
+          persona // persona 전달
+        )
+      }
 
       if (sectionScript) {
         console.log(`🎵 다음 섹션 준비 완료: ${nextSection.title}`)
