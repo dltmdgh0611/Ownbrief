@@ -37,6 +37,16 @@ export default function DevPage() {
       method: 'GET'
     },
     {
+      name: 'Notion API (직접)',
+      endpoint: '/api/dev/test?type=notion',
+      method: 'GET'
+    },
+    {
+      name: 'Work 스크립트 (노션/슬랙)',
+      endpoint: '/api/dev/test?type=work-script',
+      method: 'GET'
+    },
+    {
       name: '사용자 세션',
       endpoint: '/api/dev/test?type=session',
       method: 'GET'
@@ -291,9 +301,9 @@ export default function DevPage() {
           </div>
         </div>
 
-        {/* Slack 전용 테스트 */}
+        {/* Slack & Notion 전용 테스트 */}
         <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Slack 전용 테스트</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Slack & Notion 전용 테스트</h2>
           <div className="space-y-4">
             <div className="p-4 bg-purple-50 rounded-lg">
               <h3 className="font-medium text-purple-900 mb-2">Slack 멘션 테스트</h3>
@@ -405,6 +415,40 @@ export default function DevPage() {
                 className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
               >
                 채널 목록 디버깅 실행
+              </button>
+            </div>
+
+            {/* Notion 테스트 버튼 */}
+            <div className="p-4 bg-purple-50 rounded-lg mt-4">
+              <h3 className="font-medium text-purple-900 mb-2">Notion 페이지 테스트</h3>
+              <p className="text-sm text-purple-700 mb-3">
+                최근 24시간 이내 사용자가 태그되거나 수정한 Notion 페이지를 조회합니다. 터미널에서 상세 로그를 확인하세요.
+              </p>
+              <button
+                onClick={async () => {
+                  try {
+                    console.log('🧪 Notion 테스트 시작...')
+                    const response = await fetch('/api/dev/test?type=notion')
+                    const data = await response.json()
+                    console.log('Notion 테스트 결과:', data)
+                    
+                    if (data.success) {
+                      const pageList = data.data?.pages?.map((p: any, idx: number) => 
+                        `${idx + 1}. ${p.title}\n   ${p.timeAgo} | ${p.workspace}`
+                      ).join('\n\n') || '없음'
+                      
+                      alert(`Notion 테스트 성공!\n\n페이지 수: ${data.data?.pageCount || 0}\n\n페이지 목록:\n${pageList}`)
+                    } else {
+                      alert(`Notion 테스트 실패: ${data.error}\n\n컨솔 로그를 확인하세요.`)
+                    }
+                  } catch (error) {
+                    console.error('Notion test error:', error)
+                    alert('Notion 테스트 실패')
+                  }
+                }}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
+                Notion 페이지 테스트 실행
               </button>
             </div>
           </div>

@@ -44,10 +44,10 @@ export default function ScriptViewer({ script, isPlaying, onClose }: ScriptViewe
   }
 
   return (
-    <div className="app-card p-6 max-h-[500px] overflow-hidden">
+    <div className="app-card p-6 max-h-[500px] overflow-hidden" style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif' }}>
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-gray-900">브리핑 스크립트</h3>
+        <h3 className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif' }}>브리핑 스크립트</h3>
         <button
           onClick={() => setShowScript(false)}
           className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
@@ -57,7 +57,7 @@ export default function ScriptViewer({ script, isPlaying, onClose }: ScriptViewe
       </div>
 
       {/* 스크립트 영역 */}
-      <div className="overflow-y-auto max-h-[400px] space-y-2 pr-2">
+      <div className="overflow-y-auto max-h-[400px] space-y-2 pr-2" style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif' }}>
         {scriptLines.map((line, index) => {
           const isPast = index < currentLine
           const isCurrent = index === currentLine
@@ -71,13 +71,14 @@ export default function ScriptViewer({ script, isPlaying, onClose }: ScriptViewe
               key={index}
               className={`transition-all duration-500 ${
                 isCurrent
-                  ? 'text-brand font-bold text-base'
+                  ? 'text-brand font-bold text-lg'
                   : isPast
-                  ? 'text-gray-500 text-sm'
-                  : 'text-gray-400 text-sm'
+                  ? 'text-gray-500 text-base'
+                  : 'text-gray-400 text-base'
               } ${
-                isSection ? 'mt-4 mb-2 font-bold text-brand' : ''
+                isSection ? 'mt-4 mb-2 font-bold text-brand text-lg' : ''
               }`}
+              style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif' }}
             >
               {line || '\u00A0'}
             </div>

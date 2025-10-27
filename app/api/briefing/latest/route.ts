@@ -15,13 +15,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const briefing = await BriefingService.getLatestBriefing(session.user.email)
+    // 오늘 날짜의 브리핑 조회
+    const briefing = await BriefingService.getTodayBriefing(session.user.email)
 
     if (!briefing) {
-      return NextResponse.json({ error: 'No briefing found' }, { status: 404 })
+      return NextResponse.json({ briefing: null })
     }
 
-    return NextResponse.json(briefing)
+    return NextResponse.json({ briefing })
   } catch (error) {
     console.error('API error:', error)
     return NextResponse.json(

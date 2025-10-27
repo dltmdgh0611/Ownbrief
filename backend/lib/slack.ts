@@ -186,6 +186,9 @@ export class SlackClient {
                 console.log('⚠️ 사용자 정보 가져오기 실패:', e)
               }
 
+              const messageDate = new Date(messageTime * 1000)
+              const hoursAgo = Math.round((Date.now() - messageDate.getTime()) / (1000 * 60 * 60 * 10)) / 100
+              
               const mention = {
                 channel: channel.id!,
                 channelName: channel.name || 'Unknown',
@@ -195,7 +198,13 @@ export class SlackClient {
                 timestamp: message.ts!,
               }
               
-              console.log('✅ 멘션 추가:', mention)
+              console.log('✅ 멘션 추가:')
+              console.log(`   👤 발신자: ${userName}`)
+              console.log(`   💬 채널: ${channel.name}`)
+              console.log(`   📝 내용: ${message.text?.substring(0, 100)}${message.text && message.text.length > 100 ? '...' : ''}`)
+              console.log(`   ⏰ 시간: ${hoursAgo}시간 전 (${messageDate.toLocaleString('ko-KR')})`)
+              console.log(`   🔗 URL: https://${authTest.team || 'slack'}.slack.com/archives/${channel.id}/p${message.ts?.replace('.', '')}`)
+              
               unreadMentions.push(mention)
 
               if (unreadMentions.length >= limit) {
@@ -214,7 +223,18 @@ export class SlackClient {
       }
 
       console.log(`🎉 최종 결과: ${unreadMentions.length}개 읽지 않은 멘션 발견`)
-      console.log('📋 멘션 목록:', unreadMentions.map(m => ({ channel: m.channelName, user: m.userName, text: m.text.substring(0, 50) + '...' })))
+      if (unreadMentions.length > 0) {
+        console.log('📋 발견된 멘션 목록:')
+        unreadMentions.forEach((m, idx) => {
+          const msgDate = new Date(parseFloat(m.timestamp) * 1000)
+          const hoursAgo = Math.round((Date.now() - msgDate.getTime()) / (1000 * 60 * 60 * 10)) / 100
+          console.log(`   ${idx + 1}. ${m.channelName} # ${m.userName}`)
+          console.log(`      💬 ${m.text.substring(0, 80)}${m.text.length > 80 ? '...' : ''}`)
+          console.log(`      ⏰ ${hoursAgo}시간 전`)
+        })
+      } else {
+        console.log('⚠️ 24시간 이내 멘션을 찾지 못했습니다.')
+      }
       
       return unreadMentions.slice(0, limit)
     } catch (error) {

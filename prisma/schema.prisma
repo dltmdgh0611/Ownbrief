@@ -129,8 +129,11 @@ model Briefing {
   audioUrl    String?
   duration    Int? // 초 단위
   dataSources Json // 사용된 데이터 소스 정보
+  sectionData Json? // 카드 뷰를 위한 섹션별 데이터
   playCount   Int      @default(0)
   createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model DailyTrendKeywords {

@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
           console.log('🔄 슬랙/노션 데이터 수집 시작...')
           const [slackData, notionData] = await Promise.allSettled([
             SlackClient.getUnreadMentions(userEmail, 20).catch(() => []),
-            NotionClient.analyzeAllWorkspaces(userEmail).catch(() => []),
+            NotionClient.getRecentPersonalActivity(userEmail, 10).catch(() => []),
           ])
           data = {
             slack: slackData.status === 'fulfilled' ? slackData.value : [],

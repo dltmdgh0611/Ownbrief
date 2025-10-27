@@ -4,16 +4,22 @@ import { authOptions } from '@/backend/lib/auth'
 import { CalendarClient } from '@/backend/lib/calendar'
 import { GmailClient } from '@/backend/lib/gmail'
 import { SlackClient } from '@/backend/lib/slack'
+import { NotionClient } from '@/backend/lib/notion'
+import { BriefingService } from '@/backend/services/briefing.service'
+import { PersonaService } from '@/backend/services/persona.service'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
  * 개발자 모드 API 테스트 엔드포인트
- * GET /api/dev/test-calendar - Calendar API 테스트
- * GET /api/dev/test-gmail - Gmail API 테스트
- * GET /api/dev/test-slack - Slack API 테스트
- * GET /api/dev/test-session - 세션 정보 확인
+ * GET /api/dev/test?type=calendar - Calendar API 테스트
+ * GET /api/dev/test?type=gmail - Gmail API 테스트
+ * GET /api/dev/test?type=slack - Slack API 테스트
+ * GET /api/dev/test?type=notion - Notion API 테스트
+ * GET /api/dev/test?type=work-script - Work 섹션(노션/슬랙) 브리핑 스크립트 테스트
+ * GET /api/dev/test?type=session - 세션 정보 확인
+ * GET /api/dev/test?type=all - 모든 API 테스트
  */
 
 export async function GET(request: NextRequest) {
@@ -48,6 +54,12 @@ export async function GET(request: NextRequest) {
       case 'slack':
         return await testSlackAPI(userEmail)
       
+      case 'notion':
+        return await testNotionAPI(userEmail)
+      
+      case 'work-script':
+        return await testWorkScript(userEmail)
+      
       case 'session':
         return await testSession(session)
       
@@ -58,7 +70,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           success: false,
           error: 'INVALID_TYPE',
-          message: '지원하지 않는 테스트 타입입니다. type=calendar|gmail|slack|session|all'
+          message: '지원하지 않는 테스트 타입입니다. type=calendar|gmail|slack|notion|work-script|session|all'
         }, { status: 400 })
     }
 
@@ -179,6 +191,114 @@ async function testSlackAPI(userEmail: string) {
   }
 }
 
+async function testNotionAPI(userEmail: string) {
+  const startTime = Date.now()
+  
+  try {
+    console.log('🧪 Dev API에서 Notion 테스트 시작:', userEmail)
+    const pages = await NotionClient.getRecentPersonalActivity(userEmail, 10)
+    const duration = Date.now() - startTime
+    
+    return NextResponse.json({
+      success: true,
+      service: 'Notion API',
+      duration: duration,
+      data: {
+        pageCount: pages.length,
+        pages: pages.map(page => ({
+          id: page.id,
+          title: page.title,
+          url: page.url,
+          lastEdited: page.lastEditedTime,
+          workspace: page.workspace,
+          timeAgo: new Date(page.lastEditedTime).toLocaleString('ko-KR'),
+          content: page.content || '', // 추출된 텍스트 내용
+          contentLength: (page.content || '').length,
+          isUserMentioned: page.isUserMentioned || false
+        })),
+        workspaces: Array.from(new Set(pages.map(p => p.workspace)))
+      }
+    })
+  } catch (error: any) {
+    const duration = Date.now() - startTime
+    
+    return NextResponse.json({
+      success: false,
+      service: 'Notion API',
+      duration: duration,
+      error: error.message || 'Notion API 테스트 실패',
+      stack: error.stack
+    }, { status: 500 })
+  }
+}
+
+async function testWorkScript(userEmail: string) {
+  const startTime = Date.now()
+  
+  try {
+    console.log('🧪 Dev API에서 Work 스크립트 테스트 시작:', userEmail)
+    
+    // 1. 슬랙과 노션 데이터 가져오기
+    const [slackData, notionData, persona] = await Promise.all([
+      SlackClient.getUnreadMentions(userEmail, 20).catch(() => []),
+      NotionClient.getRecentPersonalActivity(userEmail, 10).catch(() => []),
+      PersonaService.getPersona(userEmail).catch(() => null)
+    ])
+    
+    console.log(`✅ 데이터 수집 완료: slack=${slackData.length}, notion=${notionData.length}`)
+    
+    // 2. work 섹션 데이터 준비
+    const workData = {
+      slack: slackData,
+      notion: notionData
+    }
+    
+    // 3. 브리핑 스크립트 생성
+    console.log('📝 브리핑 스크립트 생성 중...')
+    const script = await BriefingService.generateSectionScript('work', workData, persona)
+    const duration = Date.now() - startTime
+    
+    console.log(`✅ 브리핑 스크립트 생성 완료: ${script.length}자`)
+    
+    return NextResponse.json({
+      success: true,
+      service: 'Work Script',
+      duration: duration,
+      data: {
+        slackCount: slackData.length,
+        notionCount: notionData.length,
+        notionPagesWithContent: notionData.filter((p: any) => p.content && p.content.length > 0).length,
+        script: script,
+        scriptLength: script.length,
+        workData: {
+          slack: slackData.map((m: any) => ({
+            channel: m.channelName,
+            user: m.userName,
+            text: m.text?.substring(0, 100)
+          })),
+          notion: notionData.map((p: any) => ({
+            title: p.title,
+            content: p.content,
+            contentLength: (p.content || '').length,
+            isUserMentioned: p.isUserMentioned,
+            workspace: p.workspace
+          }))
+        }
+      }
+    })
+  } catch (error: any) {
+    const duration = Date.now() - startTime
+    
+    return NextResponse.json({
+      success: false,
+      service: 'Work Script',
+      duration: duration,
+      error: error.message || 'Work 스크립트 생성 실패',
+      stack: error.stack
+    }, { status: 500 })
+  }
+}
+
 async function testSession(session: any) {
   return NextResponse.json({
     success: true,
@@ -242,6 +362,22 @@ async function testAllAPIs(userEmail: string, session: any) {
   } catch (error) {
     results.push({
       service: 'Slack',
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+  
+  // Notion 테스트
+  try {
+    const notionResult = await testNotionAPI(userEmail)
+    const notionData = await notionResult.json()
+    results.push({
+      service: 'Notion',
+      ...notionData
+    })
+  } catch (error) {
+    results.push({
+      service: 'Notion',
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
     })

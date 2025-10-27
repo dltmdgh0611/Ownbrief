@@ -50,6 +50,7 @@ export default function BriefingPlayerPage() {
     data: any
     timestamp: Date
   }>>([])
+  const [briefingId, setBriefingId] = useState<string | null>(null)
   
   // Refs
   const audioEngineRef = useRef<AudioEngine | null>(null)
@@ -363,6 +364,26 @@ export default function BriefingPlayerPage() {
     
     if (nextIndex >= sections.length) {
       console.log('🎯 모든 섹션 재생 완료')
+      
+      // DB에 브리핑 저장
+      if (sectionData.length > 0) {
+        try {
+          const response = await fetch('/api/briefing/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sectionData })
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            setBriefingId(data.briefingId)
+            console.log(`✅ 브리핑 저장 완료: ${data.briefingId}`)
+          }
+        } catch (error) {
+          console.error('브리핑 저장 오류:', error)
+        }
+      }
+      
       setIsGenerating(false)
       setIsPlaying(false)
       
@@ -420,7 +441,7 @@ export default function BriefingPlayerPage() {
     } else {
       console.warn(`⚠️ pendingNext 불일치 또는 없음! nextIndex: ${nextIndex}, pendingNext: ${pendingNextRef.current ? pendingNextRef.current.index : 'null'}`)
     }
-  }, [isStopped, sections])
+  }, [isStopped, sections, sectionData])
 
   // 음성 재생 시작 핸들러
   const handleAudioStart = useCallback(async () => {
@@ -568,6 +589,21 @@ ${dateStr} 브리핑을 시작하겠습니다.`
     }
   }, [generateTTS])
 
+  // 오늘 날짜 브리핑 확인
+  const checkTodayBriefing = useCallback(async () => {
+    try {
+      const response = await fetch('/api/briefing/latest')
+      if (!response.ok) {
+        return null
+      }
+      const data = await response.json()
+      return data.briefing
+    } catch (error) {
+      console.error('오늘 브리핑 확인 오류:', error)
+      return null
+    }
+  }, [])
+
   // 브리핑 생성 시작
   const handleGenerateBriefing = useCallback(async () => {
     try {
@@ -583,6 +619,26 @@ ${dateStr} 브리핑을 시작하겠습니다.`
       setCurrentPlayingIndex(0)
       currentPlayingIndexRef.current = 0
       lastPreparedIndexRef.current = null
+
+      // 오늘 날짜 브리핑 확인
+      const todayBriefing = await checkTodayBriefing()
+      
+      if (todayBriefing && todayBriefing.sectionData) {
+        console.log('✅ 오늘 브리핑이 이미 존재합니다. 재생을 시작합니다.')
+        
+        // 기존 브리핑 데이터로 상태 설정
+        setScript(todayBriefing.script)
+        setSectionData(todayBriefing.sectionData)
+        
+        // 재생 카운트 증가
+        if (todayBriefing.id) {
+          await fetch(`/api/briefing/${todayBriefing.id}/play`, { method: 'POST' })
+        }
+        
+        setIsGenerating(false)
+        // TODO: 기존 오디오 파일 재생 로직 추가
+        return
+      }
 
       // 오디오 엔진 초기화 (닫힌 경우 재생성)
       initAudioEngine()
@@ -709,7 +765,7 @@ ${dateStr} 브리핑을 시작하겠습니다.`
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-b from-teal-800 via-teal-700 to-teal-600 text-white overflow-hidden">
+    <div className="h-screen flex flex-col bg-gradient-to-b from-teal-800 via-teal-700 to-teal-600 text-white overflow-hidden" style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif' }}>
       {/* 상단 헤더 */}
       <div className="flex-shrink-0 px-4 py-3 flex items-center justify-between">
         <button
@@ -747,7 +803,7 @@ ${dateStr} 브리핑을 시작하겠습니다.`
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {/* 텍스트 뷰 */}
         {viewMode === 'text' && (
-          <div className="space-y-6 text-base leading-relaxed">
+          <div className="space-y-6 text-lg leading-relaxed" style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif' }}>
             {scriptSections.length > 0 ? (
             scriptSections.map((item, sectionIdx) => (
               <div
@@ -844,109 +900,127 @@ ${dateStr} 브리핑을 시작하겠습니다.`
             {/* 데이터 카드들 */}
             <div className="space-y-6">
               {sectionData.length > 0 ? (
-                sectionData.map((section, idx) => (
-                  <div key={idx} className="space-y-3">
-                    {/* 섹션 헤더 */}
-                    <div className="flex items-center gap-2 text-white">
-                      <span className="text-lg">
-                        {section.section === 'calendar' ? '📅' : 
-                         section.section === 'gmail' ? '📧' :
-                         section.section === 'slack' ? '💬' :
-                         section.section === 'notion' ? '📝' :
-                         section.section === 'interests' ? '📈' : '📋'}
-                      </span>
-                      <h3 className="text-lg font-semibold">{section.title}</h3>
-                      {Array.isArray(section.data) && (
-                        <span className="text-sm opacity-70">{section.data.length}건</span>
-                      )}
-                    </div>
-
-                    {/* 카드 아이템들 */}
-                    {section.section === 'gmail' && Array.isArray(section.data) && section.data.length > 0 && (
-                      <div className="space-y-2">
-                        {section.data.slice(0, 3).map((email: any, emailIdx: number) => (
-                          <div 
-                            key={emailIdx}
-                            className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-colors"
-                          >
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex-1">
-                                <div className="font-medium text-white mb-1">
-                                  {email.from || email.sender || '발신자 정보 없음'}
-                                </div>
-                                <div className="text-sm text-white/70 mb-2">
-                                  {email.subject || email.title || '제목 없음'}
-                                </div>
-                              </div>
-                              {email.urgent && (
-                                <span className="px-2 py-1 bg-red-500/30 text-red-200 text-xs rounded-full">
-                                  긴급
-                                </span>
-                              )}
-                            </div>
-                            {email.time && (
-                              <div className="text-xs text-white/50">
-                                {email.time}
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                sectionData.map((section, idx) => {
+                  // 슬랙/노션(write) 섹션은 표시하지 않음
+                  if (section.section === 'work') {
+                    return null
+                  }
+                  
+                  return (
+                    <div key={idx} className="space-y-3">
+                      {/* 섹션 헤더 - 이모티콘 제거, 미니멀 디자인 */}
+                      <div className="flex items-center gap-2 text-white">
+                        <h3 className="text-lg font-semibold">{section.title}</h3>
+                        {Array.isArray(section.data) && (
+                          <span className="text-sm opacity-70">{section.data.length}건</span>
+                        )}
                       </div>
-                    )}
 
-                    {section.section === 'calendar' && Array.isArray(section.data) && section.data.length > 0 && (
-                      <div className="space-y-2">
-                        {section.data.slice(0, 3).map((event: any, eventIdx: number) => (
-                          <div 
-                            key={eventIdx}
-                            className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-colors"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <div className="font-medium text-white mb-1">
-                                  {event.summary || event.title || '제목 없음'}
+                      {/* 카드 아이템들 */}
+                      {section.section === 'gmail' && Array.isArray(section.data) && section.data.length > 0 && (
+                        <div className="space-y-2">
+                          {section.data.slice(0, 3).map((email: any, emailIdx: number) => {
+                            // 30자 이내의 설명 추출 (메일 주소 제거)
+                            const description = email.summary || email.snippet || email.subject || email.title || '내용 없음'
+                            const shortDescription = description.length > 30 ? description.substring(0, 30) + '...' : description
+                            
+                            return (
+                              <div 
+                                key={emailIdx}
+                                className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-colors"
+                              >
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex-1">
+                                    <div className="font-medium text-white mb-1">
+                                      {email.from || email.sender || '발신자 정보 없음'}
+                                    </div>
+                                    <div className="text-sm text-white/70 mb-2">
+                                      {shortDescription}
+                                    </div>
+                                  </div>
+                                  {email.urgent && (
+                                    <span className="px-2 py-1 bg-red-500/30 text-red-200 text-xs rounded-full">
+                                      긴급
+                                    </span>
+                                  )}
                                 </div>
-                                {event.location && (
-                                  <div className="text-sm text-white/60">
-                                    📍 {event.location}
+                                {email.time && (
+                                  <div className="text-xs text-white/50">
+                                    {email.time}
                                   </div>
                                 )}
                               </div>
-                              <div className="text-sm text-white/70 text-right">
-                                {event.time || event.start || '시간 미정'}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                            )
+                          })}
+                        </div>
+                      )}
 
-                    {section.section === 'interests' && Array.isArray(section.data) && section.data.length > 0 && (
-                      <div className="space-y-2">
-                        {section.data.slice(0, 3).map((item: any, itemIdx: number) => (
-                          <div 
-                            key={itemIdx}
-                            className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-colors"
-                          >
-                            {item.tag && (
-                              <div className="inline-block px-2 py-1 bg-white/20 rounded text-xs text-white/80 mb-2">
-                                {item.tag}
+                      {section.section === 'calendar' && Array.isArray(section.data) && section.data.length > 0 && (
+                        <div className="space-y-2">
+                          {section.data.slice(0, 3).map((event: any, eventIdx: number) => {
+                            // 시간 형식을 HH:mm으로 변환
+                            let timeDisplay = '시간 미정'
+                            if (event.start) {
+                              const date = new Date(event.start)
+                              if (!isNaN(date.getTime())) {
+                                const hours = date.getHours().toString().padStart(2, '0')
+                                const minutes = date.getMinutes().toString().padStart(2, '0')
+                                timeDisplay = `${hours}:${minutes}`
+                              }
+                            }
+                            
+                            return (
+                              <div 
+                                key={eventIdx}
+                                className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-colors"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <div className="font-medium text-white mb-1">
+                                      {event.summary || event.title || '제목 없음'}
+                                    </div>
+                                    {event.location && (
+                                      <div className="text-sm text-white/60">
+                                        {event.location}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-sm text-white/70 text-right whitespace-nowrap ml-4">
+                                    {timeDisplay}
+                                  </div>
+                                </div>
                               </div>
-                            )}
-                            <div className="font-medium text-white mb-2">
-                              {item.title || item.topic || '제목 없음'}
-                            </div>
-                            {item.source && (
-                              <div className="text-xs text-white/50">
-                                {item.source}
-                              </div>
-                            )}
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {/* 트렌드 섹션 (trend1, trend2, trend3) */}
+                      {(section.section === 'trend1' || section.section === 'trend2' || section.section === 'trend3') && section.data && (
+                        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-colors">
+                          <div className="font-medium text-white mb-2">
+                            {section.data.keyword ? 
+                              `${section.data.keyword.level2} - ${section.data.keyword.level3}` : 
+                              '트렌드 정보'}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))
+                          {/* 참고한 뉴스 간단히 표시 */}
+                          {section.data.news && (
+                            <div className="text-sm text-white/70 mb-2 line-clamp-2">
+                              {section.data.news.length > 100 
+                                ? section.data.news.substring(0, 100) + '...' 
+                                : section.data.news}
+                            </div>
+                          )}
+                          {section.data.keyword && (
+                            <div className="text-xs text-white/50">
+                              {section.data.keyword.level1}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
               ) : (
                 <div className="text-white/60 text-center py-8">
                   브리핑 데이터를 수집하고 있습니다...

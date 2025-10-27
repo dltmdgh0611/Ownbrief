@@ -519,9 +519,9 @@ export default function BriefingPlayer({ userEmail }: BriefingPlayerProps) {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col items-center justify-center p-6" style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif' }}>
       {/* 메인 재생 영역 */}
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-2xl" style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif' }}>
         {!isGenerating && !isPlaying && (
           <div className="text-center space-y-8">
             {/* 큰 재생 버튼 */}

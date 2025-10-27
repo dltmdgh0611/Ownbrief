@@ -54,7 +54,7 @@ export class BriefingService {
         { name: 'calendar', title: '오늘의 일정', client: CalendarClient, method: 'getTodayEvents' },
         { name: 'gmail', title: '중요 메일', client: GmailClient, method: 'analyzeRecentEmails' },
         { name: 'slack', title: '팀 커뮤니케이션', client: SlackClient, method: 'getUnreadMentions' },
-        { name: 'notion', title: '업무 진행 상황', client: NotionClient, method: 'analyzeWorkStyle' },
+        { name: 'notion', title: '업무 진행 상황', client: NotionClient, method: 'getRecentPersonalActivity' },
         { name: 'youtube', title: '관심사 트렌드', client: null, method: 'getYouTubeInterests' },
       ]
 
@@ -70,6 +70,8 @@ export class BriefingService {
           let data = null
           if (firstSection.name === 'youtube') {
             data = await this.getYouTubeInterests(userEmail, 3)
+          } else if (firstSection.name === 'notion') {
+            data = await NotionClient.getRecentPersonalActivity(userEmail, 10)
           } else {
             data = await (firstSection.client as any)[firstSection.method](userEmail)
           }
@@ -219,7 +221,7 @@ export class BriefingService {
       (enabledServices.has('calendar') || enabledServices.has('google')) ? CalendarClient.getTodayEvents(userEmail, 10).catch(() => null) : Promise.resolve(null),
       (enabledServices.has('gmail') || enabledServices.has('google')) ? GmailClient.analyzeRecentEmails(userEmail).catch(() => null) : Promise.resolve(null),
       enabledServices.has('slack') ? SlackClient.getUnreadMentions(userEmail, 20).catch(() => null) : Promise.resolve(null),
-      enabledServices.has('notion') ? NotionClient.analyzeAllWorkspaces(userEmail).catch(() => null) : Promise.resolve(null),
+      enabledServices.has('notion') ? NotionClient.getRecentPersonalActivity(userEmail, 10).catch(() => null) : Promise.resolve(null),
       Promise.resolve([]), // YouTube 트렌드는 interests 섹션에서 별도로 처리
     ]
 
@@ -707,18 +709,64 @@ ${data && data.length > 0 ? JSON.stringify(data, null, 2) : '새로운 중요 �
 브리핑을 작성하세요:`
 
       case 'work':
+        // Notion 데이터에서 멘션된 항목 우선 정렬
+        let notionData = data?.notion || []
+        if (Array.isArray(notionData) && notionData.length > 0) {
+          // isUserMentioned가 true인 항목을 맨 앞으로
+          notionData = [...notionData].sort((a, b) => {
+            const aIsMentioned = a.isUserMentioned ? 1 : 0
+            const bIsMentioned = b.isUserMentioned ? 1 : 0
+            return bIsMentioned - aIsMentioned
+          })
+        }
+        
+        // Notion 페이지에서 content가 있는 것만 필터링
+        const notionPagesWithContent = notionData.filter((page: any) => page.content && page.content.length > 0)
+        
         return `지시: 모든 문장은 자연스러운 한국어(존댓말)로만 작성하고, 불필요한 영어 표현을 사용하지 마세요.
-슬랙과 노션의 업무 업데이트를 **하나의 섹션으로 통합**해 브리핑하세요. 연동이 안 된 서비스 데이터는 스킵하세요.
+슬랙과 노션의 업무 업데이트를 **하나의 섹션으로 통합**해 브리핑하세요.
 
-## 데이터 (예: { slack: [...], notion: [...] })
-${data ? JSON.stringify(data, null, 2) : '{ slack: [], notion: [] }'}
+## Slack 멘션 데이터
+${data?.slack && data.slack.length > 0 ? JSON.stringify(data.slack, null, 2) : '[]'}
 
-## 작성 규칙
-- 앞에 연결 문장 1문장(메일에서 자연스럽게 이어짐)
-- 슬랙/노션 모두 비어있으면 "오늘은 별도 업데이트가 없었습니다"로 간단히 종료
-- 있으면 핵심 2~3개만 요약(담당자/작업명/기한 등)
-- 마지막에 다음 섹션(관심사 뉴스)로 넘어가는 연결 문장 1문장
-- 25~35초 분량, 간결하고 친근하게
+## Notion 업데이트 데이터 (최근 24시간 이내 변경된 페이지)
+${notionPagesWithContent.length > 0 ? JSON.stringify(notionPagesWithContent.map((page: any) => ({
+  title: page.title,
+  content: page.content, // 페이지에서 추출한 핵심 텍스트 내용
+  isUserMentioned: page.isUserMentioned, // 사용자가 태그되었는지 여부
+  workspace: page.workspace,
+  lastEdited: page.lastEditedTime
+})), null, 2) : '[]'}
+
+## 작성 규칙 (매우 중요!)
+1. **우선순위**: 
+   - 사용자가 태그된(멘션된) 페이지를 최우선으로 강조하여 브리핑
+   - 실제 내용(content)이 있는 페이지만 참고
+   
+2. **Notion 브리핑 방법**:
+   - **절대 개별 페이지를 나열하지 마세요!**
+   - 전체적인 동향과 트렌드를 요약해서 브리핑
+   - 여러 페이지의 content를 종합하여 "주요 업무 동향"으로 설명
+   - 예: "최근에는 [주요 동향 요약], 특히 [멘션된 경우 강조]와 관련된 업무가 진행 중입니다"
+   - 멘션된 항목이 있으면 "[내가 태그된 작업]" 으로 명확하게 언급
+   
+3. **멘션 강조 규칙**:
+   - 'isUserMentioned: true'인 항목이 있으면 반드시 첫 문장에서 언급
+   - 예: "저에게 직접 관련된 업무가 있어요. [내용 요약]"
+   - 멘션된 항목의 content 내용을 활용하여 구체적으로 설명
+   
+4. **구조**:
+   - 메일 섹션에서 자연스럽게 이어지는 연결 문장 1문장 (맨 앞)
+   - Slack과 Notion 중 내용이 있는 것만 언급
+   - 슬랙과 노션 모두 비어있으면 "오늘은 별도 업데이트가 없었습니다"로 간단히 종료
+   - **페이지 나열 금지**: "페이지 A에서는...", "페이지 B에서는..." 같은 표현 절대 사용 금지
+   - 전체 동향을 요약하여 "최근에는...", "주요 작업 내용으로는..." 같은 표현 사용
+   - 마지막에 다음 섹션(관심사 뉴스)로 넘어가는 연결 문장 1문장
+   
+5. **톤**:
+   - 25~35초 분량의 간결하고 친근한 대화체
+   - 존대체 사용
+   - 진부한 표현 피하기
 
 브리핑을 작성하세요:`
 
@@ -835,7 +883,8 @@ ${data && data.length > 0 ? JSON.stringify(data, null, 2) : '최근 멘션된 �
   private static async createBriefingRecord(
     userEmail: string,
     script: string,
-    data: BriefingData
+    data: BriefingData,
+    sectionData?: any[]
   ): Promise<string> {
     const user = await prisma.user.findUnique({
       where: { email: userEmail },
@@ -856,6 +905,7 @@ ${data && data.length > 0 ? JSON.stringify(data, null, 2) : '최근 멘션된 �
           notion: data.notion?.length || 0,
           youtube: data.youtube?.length || 0,
         },
+        sectionData: sectionData ? sectionData as any : undefined,
       },
     })
 
@@ -877,6 +927,39 @@ ${data && data.length > 0 ? JSON.stringify(data, null, 2) : '최근 멘션된 �
     })
 
     return user?.briefings[0] || null
+  }
+
+  /**
+   * 오늘 날짜의 브리핑 조회
+   */
+  static async getTodayBriefing(userEmail: string) {
+    const user = await prisma.user.findUnique({
+      where: { email: userEmail }
+    })
+
+    if (!user) {
+      return null
+    }
+
+    // 오늘 날짜 범위 계산
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000)
+
+    const briefing = await prisma.briefing.findFirst({
+      where: {
+        userId: user.id,
+        createdAt: {
+          gte: today,
+          lt: tomorrow
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    })
+
+    return briefing
   }
 
   /**
