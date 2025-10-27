@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/backend/lib/auth'
 import { PersonaService } from '@/backend/services/persona.service'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * 페르소나 조회 및 업데이트 API
  */

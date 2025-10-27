@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/backend/lib/auth'
 import { prisma } from '@/backend/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * 온보딩 상태 확인 API (페르소나 기반)
  */

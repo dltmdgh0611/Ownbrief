@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/backend/lib/auth'
 import { BriefingService } from '@/backend/services/briefing.service'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * 최근 브리핑 조회 API
  */
