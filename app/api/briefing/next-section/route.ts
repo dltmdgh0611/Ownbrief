@@ -124,21 +124,26 @@ export async function POST(request: NextRequest) {
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
             const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000)
 
-            const existingKeywords = await prisma.$queryRaw<any[]>`
-              SELECT * FROM "DailyTrendKeywords"
-              WHERE "userId" = ${user.id}
-                AND "createdAt" >= ${today}
-                AND "createdAt" < ${tomorrow}
-              ORDER BY "createdAt" DESC
-              LIMIT 1
-            `
+            const existingKeywords = await prisma.dailyTrendKeywords.findFirst({
+              where: {
+                userId: user.id,
+                createdAt: {
+                  gte: today,
+                  lt: tomorrow
+                }
+              },
+              orderBy: {
+                createdAt: 'desc'
+              }
+            })
 
-            if (!existingKeywords || existingKeywords.length === 0 || trendIndex >= existingKeywords[0].keywords.length) {
+            const keywords = existingKeywords?.keywords as any[]
+            if (!existingKeywords || !keywords || trendIndex >= keywords.length) {
               console.log('⚠️ 키워드 없음 또는 인덱스 초과')
               data = { skip: true }
             } else {
               // 해당 키워드만 처리
-              const keyword = existingKeywords[0].keywords[trendIndex]
+              const keyword = keywords[trendIndex]
               console.log(`📌 키워드 처리: ${keyword.level1} > ${keyword.level2} > ${keyword.level3}`)
               
               // 뉴스 검색 및 스크립트 생성

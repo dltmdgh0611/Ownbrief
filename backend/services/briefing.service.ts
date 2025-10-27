@@ -276,19 +276,23 @@ export class BriefingService {
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
       const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000)
 
-      // 오늘 생성된 키워드 조회 (Raw SQL)
-      const existingKeywords = await prisma.$queryRaw<any[]>`
-        SELECT * FROM "DailyTrendKeywords"
-        WHERE "userId" = ${user.id}
-          AND "createdAt" >= ${today}
-          AND "createdAt" < ${tomorrow}
-        ORDER BY "createdAt" DESC
-        LIMIT 1
-      `
+      // 오늘 생성된 키워드 조회 (Prisma 쿼리로 변경)
+      const existingKeywords = await prisma.dailyTrendKeywords.findFirst({
+        where: {
+          userId: user.id,
+          createdAt: {
+            gte: today,
+            lt: tomorrow
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      })
 
-      if (existingKeywords && existingKeywords.length > 0) {
+      if (existingKeywords) {
         console.log('✅ 기존 키워드 사용')
-        const keywords = existingKeywords[0].keywords as any[]
+        const keywords = existingKeywords.keywords as any[]
         
         // 각 키워드에 대해 뉴스와 스크립트 생성
         console.log('🔍 키워드별 뉴스 검색 및 스크립트 생성 중...')
@@ -335,14 +339,17 @@ export class BriefingService {
       const now = new Date()
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
-      const existing = await prisma.$queryRaw<any[]>`
-        SELECT * FROM "DailyTrendKeywords"
-        WHERE "userId" = ${user.id}
-          AND "createdAt" >= ${today}
-        LIMIT 1
-      `
+      // Prisma 쿼리로 변경 (Raw SQL 대신)
+      const existing = await prisma.dailyTrendKeywords.findFirst({
+        where: {
+          userId: user.id,
+          createdAt: {
+            gte: today
+          }
+        }
+      })
 
-      if (existing && existing.length > 0) {
+      if (existing) {
         console.log('✅ 이미 오늘 키워드가 생성됨')
         return
       }
@@ -355,17 +362,23 @@ export class BriefingService {
         return
       }
 
-      // DB에 저장 (Raw SQL)
+      // DB에 저장 (Prisma 쿼리로 변경)
       const expiresAt = new Date(today.getTime() + 24 * 60 * 60 * 1000)
 
-      await prisma.$executeRaw`
-        INSERT INTO "DailyTrendKeywords" (id, "userId", keywords, "createdAt", "expiresAt")
-        VALUES (gen_random_uuid()::text, ${user.id}, ${JSON.stringify(keywords)}::jsonb, ${today}, ${expiresAt})
-      `
+      await prisma.dailyTrendKeywords.create({
+        data: {
+          userId: user.id,
+          keywords: keywords as any,
+          createdAt: today,
+          expiresAt: expiresAt
+        }
+      })
 
       console.log('✅ 키워드 생성 및 저장 완료')
     } catch (error) {
       console.error('❌ 백그라운드 키워드 생성 오류:', error)
+      // 에러를 다시 throw하여 브리핑이 멈추도록 함
+      throw error
     }
   }
 

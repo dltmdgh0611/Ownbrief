@@ -11,15 +11,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // 백그라운드로 키워드 생성 (비동기)
-    BriefingService.generateAndSaveTrendKeywords(session.user.email)
-      .catch(error => {
-        console.error('❌ 백그라운드 키워드 생성 오류:', error)
-      })
+    // 키워드 생성 (await로 기다려서 실패 시 브리핑 중단)
+    await BriefingService.generateAndSaveTrendKeywords(session.user.email)
 
     return NextResponse.json({
       success: true,
-      message: '트렌드 키워드 생성을 시작했습니다.'
+      message: '트렌드 키워드 생성 완료'
     })
   } catch (error: any) {
     console.error('Preload trends error:', error)
