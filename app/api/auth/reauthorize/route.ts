@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/backend/lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Google OAuth 재인증 URL 생성
  * Refresh token이 없는 사용자를 위한 재인증 유도
