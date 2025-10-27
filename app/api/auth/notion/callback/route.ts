@@ -100,11 +100,22 @@ export async function GET(request: NextRequest) {
       botId: tokenData.bot_id,
     }
 
+    // DB에서 실제 user ID 조회
+    const dbUser = await prisma.user.findUnique({
+      where: { email: session.user.email! },
+      select: { id: true }
+    })
+
+    if (!dbUser) {
+      console.error('User not found in database')
+      return NextResponse.redirect(new URL('/settings?error=user_not_found', baseUrl))
+    }
+
     // 데이터베이스에 저장
     await prisma.connectedService.upsert({
       where: {
         userId_serviceName: {
-          userId: session.user.id,
+          userId: dbUser.id,
           serviceName: 'notion',
         },
       },
@@ -122,7 +133,7 @@ export async function GET(request: NextRequest) {
         },
       },
       create: {
-        userId: session.user.id,
+        userId: dbUser.id,
         serviceName: 'notion',
         accessToken: tokenData.access_token,
         refreshToken: tokenData.refresh_token || null,
