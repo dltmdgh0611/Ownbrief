@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/backend/lib/auth'
 
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
