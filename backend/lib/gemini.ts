@@ -162,8 +162,8 @@ export async function generateMultiSpeakerSpeech(script: string): Promise<AudioR
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       console.log(`🎤 TTS API 요청 중... (시도 ${attempt}/${MAX_RETRIES})`)
-    // Gemini 2.5 Flash Preview TTS 모델 사용
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-tts" })
+    // Gemini 2.5 Pro TTS 모델 사용
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro-tts" })
     
     // 다중 화자 설정
     const response = await model.generateContent({
