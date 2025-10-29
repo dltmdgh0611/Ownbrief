@@ -1,14 +1,18 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { ArrowLeft, Play, Pause } from 'lucide-react'
 import { AudioEngine } from '@/frontend/lib/audio-engine'
 
+type ToneOfVoice = 'default' | 'zephyr' | 'charon'
+
 export default function BriefingPlayerPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: session, status } = useSession()
+  const [toneOfVoice, setToneOfVoice] = useState<ToneOfVoice>('default')
   
   // UI 상태
   const [viewMode, setViewMode] = useState<'text' | 'card'>('text')
@@ -164,6 +168,15 @@ export default function BriefingPlayerPage() {
     scriptSectionsRef.current = scriptSections
   }, [scriptSections])
 
+  // 쿼리 파라미터에서 말투 읽기
+  useEffect(() => {
+    const toneParam = searchParams.get('tone') as ToneOfVoice
+    if (toneParam && ['default', 'zephyr', 'charon'].includes(toneParam)) {
+      setToneOfVoice(toneParam)
+      console.log(`🎭 말투 설정: ${toneParam}`)
+    }
+  }, [searchParams])
+
   // 로그인 체크
   useEffect(() => {
     console.log('🔐 인증 상태:', status)
@@ -197,6 +210,14 @@ export default function BriefingPlayerPage() {
     try {
       console.log(`🎙️ TTS 생성 시작: ${text.substring(0, 30)}...`)
       
+      // 말투에 따른 목소리 선택
+      let voice = 'Kore' // 기본값
+      if (toneOfVoice === 'zephyr') {
+        voice = 'Zephyr' // 여성 목소리
+      } else if (toneOfVoice === 'charon') {
+        voice = 'Charon' // 남성 목소리 (시니컬한 톤)
+      }
+      
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 300000) // 5분 타임아웃
       
@@ -205,7 +226,7 @@ export default function BriefingPlayerPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text,
-          voice: 'Kore',
+          voice,
           speed: playbackSpeed
         }),
         signal: controller.signal
@@ -240,7 +261,7 @@ export default function BriefingPlayerPage() {
       setIsStopped(true)
       return null
     }
-  }, [playbackSpeed])
+  }, [playbackSpeed, toneOfVoice])
 
   // 다음 섹션 준비
   const prepareNextSection = useCallback(async (index: number) => {
@@ -256,12 +277,22 @@ export default function BriefingPlayerPage() {
       let sectionScript = ''
       
       if (section.name === 'outro') {
-        sectionScript = '오늘 하루도 화이팅하세요! 브리핑을 마치겠습니다.'
+        // 말투에 따라 아웃로 스크립트 생성
+        if (toneOfVoice === 'zephyr') {
+          sectionScript = '오늘 하루도 정말 수고 많으셨어요! 내일도 좋은 하루 되시길 바랄게요. 브리핑은 여기까지입니다~'
+        } else if (toneOfVoice === 'charon') {
+          sectionScript = '자, 오늘 브리핑은 여기까지야. 오늘 하루도 화이팅하고, 내일도 잘 버텨봐. 끝.'
+        } else {
+          sectionScript = '오늘 하루도 화이팅하세요! 브리핑을 마치겠습니다.'
+        }
       } else if (!section.isStatic) {
         const response = await fetch('/api/briefing/next-section', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sectionIndex: index - 1 })
+          body: JSON.stringify({ 
+            sectionIndex: index - 1,
+            toneOfVoice: toneOfVoice
+          })
         })
         
         if (!response.ok) {
@@ -350,7 +381,7 @@ export default function BriefingPlayerPage() {
       setIsStopped(true)
       setIsGenerating(false)
     }
-  }, [isStopped, generateTTS, sections])
+  }, [isStopped, generateTTS, sections, toneOfVoice])
 
   // 음성 재생 종료 핸들러
   const handleAudioEnd = useCallback(async () => {
@@ -550,9 +581,21 @@ export default function BriefingPlayerPage() {
           weekday: 'long'
         })
         
-        const introScript = `안녕하세요.
+        // 말투에 따라 인트로 스크립트 생성
+        let introScript = ''
+        if (toneOfVoice === 'zephyr') {
+          introScript = `안녕하세요~ 오늘도 좋은 하루 보내고 계신가요?
+
+${dateStr} 브리핑을 준비해봤어요. 지금 시작할게요.`
+        } else if (toneOfVoice === 'charon') {
+          introScript = `안녕, 또 왔네.
+
+${dateStr} 브리핑이다. 시작할게.`
+        } else {
+          introScript = `안녕하세요.
 
 ${dateStr} 브리핑을 시작하겠습니다.`
+        }
         
         const audioBuffer = await generateTTS(introScript)
         
@@ -587,7 +630,7 @@ ${dateStr} 브리핑을 시작하겠습니다.`
       setIsGenerating(false)
       setIsStopped(true)
     }
-  }, [generateTTS])
+  }, [generateTTS, toneOfVoice])
 
   // 오늘 날짜 브리핑 확인
   const checkTodayBriefing = useCallback(async () => {

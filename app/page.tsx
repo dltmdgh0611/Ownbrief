@@ -2,14 +2,17 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Header from '@/frontend/components/Header'
 import { useOnboarding } from '@/frontend/hooks/useOnboarding'
+
+type ToneOfVoice = 'default' | 'zephyr' | 'charon'
 
 export default function Home() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const { status: onboardingStatus, loading: onboardingLoading } = useOnboarding()
+  const [selectedTone, setSelectedTone] = useState<ToneOfVoice>('default')
 
   // 로그인 안 된 사용자는 welcome 페이지로
   useEffect(() => {
@@ -71,10 +74,54 @@ export default function Home() {
       
       {/* 메인 콘텐츠 */}
       <main className="flex-1 overflow-y-auto flex items-center justify-center">
-        <div className="text-center space-y-8">
+        <div className="text-center space-y-8 max-w-2xl px-4">
+          {/* 말투 선택 UI */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-700 mb-4">
+              브리핑 말투 선택
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <button
+                onClick={() => setSelectedTone('default')}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  selectedTone === 'default'
+                    ? 'border-brand bg-brand/10 shadow-md'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="font-medium text-gray-900 mb-1">기본 말투</div>
+                <div className="text-sm text-gray-600">친근하고 전문적인 톤</div>
+              </button>
+              
+              <button
+                onClick={() => setSelectedTone('zephyr')}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  selectedTone === 'zephyr'
+                    ? 'border-brand bg-brand/10 shadow-md'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="font-medium text-gray-900 mb-1">Zephyr</div>
+                <div className="text-sm text-gray-600">여자친구 같은 따뜻한 말투</div>
+              </button>
+              
+              <button
+                onClick={() => setSelectedTone('charon')}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  selectedTone === 'charon'
+                    ? 'border-brand bg-brand/10 shadow-md'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="font-medium text-gray-900 mb-1">Charon</div>
+                <div className="text-sm text-gray-600">친구같고 시니컬한 말투</div>
+              </button>
+            </div>
+          </div>
+
           <div className="flex flex-col items-center space-y-6">
             <button
-              onClick={() => router.push('/briefing-player')}
+              onClick={() => router.push(`/briefing-player?tone=${selectedTone}`)}
               className="w-32 h-32 rounded-full bg-gradient-to-r from-brand to-brand-light shadow-2xl hover:shadow-3xl active:scale-95 transition-all duration-200 flex items-center justify-center group"
             >
               <svg className="w-16 h-16 text-white ml-2 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">

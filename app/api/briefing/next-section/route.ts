@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       }, { status: 401 })
     }
 
-    const { sectionIndex } = await request.json()
+    const { sectionIndex, toneOfVoice = 'default' } = await request.json()
     const userEmail = session.user.email
 
     // 섹션 인덱스 유효성 검증
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
               
               // 뉴스 검색 및 스크립트 생성
               const news = await BriefingService.searchNewsForKeyword(keyword)
-              const script = await BriefingService.generateScriptForKeyword(keyword, news)
+              const script = await BriefingService.generateScriptForKeyword(keyword, news, toneOfVoice)
               
               data = { keyword, news, script }
               console.log(`✅ 트렌드 ${trendIndex + 1} 완료: ${script.length}자`)
@@ -178,7 +178,8 @@ export async function POST(request: NextRequest) {
         sectionScript = await BriefingService.generateSectionScript(
           nextSection.name, 
           data, 
-          persona // persona 전달
+          persona, // persona 전달
+          toneOfVoice // 말투 전달
         )
       }
 
