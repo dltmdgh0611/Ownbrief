@@ -1,11 +1,20 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Play, Pause, Volume2, Loader2, Mic, VolumeX, FileText } from 'lucide-react'
+import { Play, Pause, Volume2, Loader2, Mic, VolumeX, FileText, Calendar, BookOpen, TrendingUp } from 'lucide-react'
 
 interface VoiceModel {
   id: string
   name: string
+}
+
+type SampleDataType = 'calendar' | 'notion' | 'trend'
+
+interface SampleData {
+  type: SampleDataType
+  name: string
+  icon: React.ReactNode
+  script: string
 }
 
 const VOICE_MODELS: VoiceModel[] = [
@@ -14,8 +23,13 @@ const VOICE_MODELS: VoiceModel[] = [
   { id: 'Charon', name: 'Charon' },
 ]
 
-// 고정된 샘플 대본 (일정 브리핑)
-const SAMPLE_SCRIPT = `오늘 하루 일정을 간단히 브리핑드리겠습니다.
+// 샘플 데이터
+const SAMPLE_DATA: Record<SampleDataType, SampleData> = {
+  calendar: {
+    type: 'calendar',
+    name: '일정',
+    icon: <Calendar className="w-5 h-5" />,
+    script: `오늘 하루 일정을 간단히 브리핑드리겠습니다.
 
 오전 10시에는 팀 미팅이 예정되어 있습니다. 주간 진행 상황과 다음 주 계획에 대해 논의할 예정입니다.
 
@@ -26,8 +40,37 @@ const SAMPLE_SCRIPT = `오늘 하루 일정을 간단히 브리핑드리겠습�
 저녁 7시에는 동료들과 간단한 저녁 식사가 예정되어 있으니 참고 부탁드립니다.
 
 오늘 하루도 힘내시고, 필요하시면 언제든 연락 부탁드립니다.`
+  },
+  notion: {
+    type: 'notion',
+    name: '노션',
+    icon: <BookOpen className="w-5 h-5" />,
+    script: `업무 진행 상황을 간단히 브리핑드리겠습니다.
+
+최근 프로젝트 진행 상황을 확인해보니, 주요 작업들이 순조롭게 진행되고 있습니다. 디자인 시스템 리뷰 페이지가 최근 업데이트되었고, 이제 다음 단계인 개발 진행으로 넘어갈 준비가 되었습니다.
+
+특히 제가 직접 태그된 작업으로는 사용자 피드백 반영 관련 문서가 있습니다. 이 작업은 이번 주 내로 완료 예정이며, 관련 팀원들과 협의가 필요한 부분들이 몇 가지 있어 주의 깊게 살펴봐야 할 것 같습니다.
+
+전체적인 업무 진행 상황은 긍정적이며, 일정대로 잘 흘러가고 있습니다. 추가로 확인이 필요한 사항이 있으면 언제든 알려주세요.`
+  },
+  trend: {
+    type: 'trend',
+    name: '트렌드',
+    icon: <TrendingUp className="w-5 h-5" />,
+    script: `오늘 관심사 관련 트렌드를 간단히 브리핑드리겠습니다.
+
+최근 AI 기술 분야에서 큰 주목을 받고 있는 것은 멀티모달 AI의 발전입니다. 텍스트와 이미지, 음성을 동시에 처리할 수 있는 모델들이 실제 서비스에 적용되기 시작했고, 이는 업무 효율성 향상에 큰 도움이 될 것으로 예상됩니다.
+
+또한 프론트엔드 개발 트렌드로는 Next.js의 서버 컴포넌트 사용이 점차 보편화되고 있습니다. 이는 개발 생산성을 높이고 사용자 경험을 개선하는 데 핵심적인 역할을 하고 있어요.
+
+마지막으로, 개발자 생산성 도구들이 계속해서 발전하고 있습니다. AI 기반 코드 생성과 리뷰 도구들이 실무에서 실제로 도움이 되는 사례들이 늘어나고 있어, 앞으로의 개발 방식에 영향을 줄 것으로 보입니다.
+
+이런 트렌드들은 우리 업무에도 적용해볼 만한 부분들이 많으니 참고하시면 좋을 것 같습니다.`
+  }
+}
 
 export default function LabPage() {
+  const [selectedDataType, setSelectedDataType] = useState<SampleDataType>('calendar')
   const [tonePrompt, setTonePrompt] = useState('친근하고 따뜻한 말투로, 듣는 사람을 배려하는 느낌으로 전달해주세요.')
   const [selectedVoice, setSelectedVoice] = useState<VoiceModel>(VOICE_MODELS[0])
   const [rewrittenScript, setRewrittenScript] = useState<string>('')
@@ -37,6 +80,8 @@ export default function LabPage() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
+
+  const currentSampleData = SAMPLE_DATA[selectedDataType]
 
   const handleRewriteScript = async () => {
     if (!tonePrompt.trim()) {
@@ -51,7 +96,8 @@ export default function LabPage() {
 
     try {
       console.log('✍️ 스크립트 재작성 요청:', {
-        script: SAMPLE_SCRIPT.substring(0, 50),
+        dataType: selectedDataType,
+        script: currentSampleData.script.substring(0, 50),
         tonePrompt
       })
 
@@ -61,7 +107,7 @@ export default function LabPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          script: SAMPLE_SCRIPT,
+          script: currentSampleData.script,
           tonePrompt: tonePrompt
         }),
       })
@@ -203,15 +249,44 @@ export default function LabPage() {
           </p>
         </div>
 
+        {/* 샘플 데이터 선택 */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            샘플 데이터 선택
+          </h2>
+          <div className="grid grid-cols-3 gap-3">
+            {(Object.values(SAMPLE_DATA) as SampleData[]).map((data) => (
+              <button
+                key={data.type}
+                onClick={() => {
+                  setSelectedDataType(data.type)
+                  setRewrittenScript('')
+                  setAudioUrl(null)
+                }}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  selectedDataType === data.type
+                    ? 'border-blue-500 bg-blue-50 shadow-md'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center justify-center space-x-2 mb-2">
+                  {data.icon}
+                  <span className="font-semibold text-gray-900">{data.name}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* 샘플 대본 표시 */}
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
             <FileText className="w-5 h-5" />
-            <span>샘플 대본</span>
+            <span>샘플 대본 ({currentSampleData.name})</span>
           </h2>
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
             <p className="text-sm text-gray-700 whitespace-pre-wrap">
-              {SAMPLE_SCRIPT}
+              {currentSampleData.script}
             </p>
           </div>
         </div>
@@ -374,10 +449,13 @@ export default function LabPage() {
           </h2>
           <ol className="space-y-2 text-sm text-gray-700 list-decimal list-inside">
             <li>
+              <strong>샘플 데이터 선택</strong>: 일정, 노션, 트렌드 중 하나를 선택하여 해당 데이터의 샘플 대본을 확인합니다.
+            </li>
+            <li>
               <strong>말투 프롬프트 입력</strong>: 원하는 말투를 자유롭게 입력하세요. 예: "친근하고 따뜻하게", "진지하고 전문적으로", "밝고 활기차게"
             </li>
             <li>
-              <strong>스크립트 재작성</strong>: "스크립트 재작성" 버튼을 눌러 샘플 대본을 말투에 맞게 재작성합니다.
+              <strong>스크립트 재작성</strong>: "스크립트 재작성" 버튼을 눌러 선택한 샘플 대본을 말투에 맞게 재작성합니다.
             </li>
             <li>
               <strong>음성 모델 선택</strong>: 재작성된 스크립트로 TTS를 생성할 음성을 선택합니다.
