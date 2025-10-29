@@ -5,9 +5,9 @@ import { SlackClient } from '../lib/slack'
 import { NotionClient } from '../lib/notion'
 import { YouTubeClient } from '../lib/youtube'
 import { PersonaService, Persona } from './persona.service'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { createGeminiClient } from '../lib/gemini'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const genAI = createGeminiClient()
 
 export interface BriefingData {
   calendar: any
@@ -430,9 +430,9 @@ export class BriefingService {
   /**
    * 개별 키워드 대본 생성
    */
-  static async generateScriptForKeyword(keyword: { level1: string, level2: string, level3: string }, news: string): Promise<string> {
+  static async generateScriptForKeyword(keyword: { level1: string, level2: string, level3: string }, news: string, toneOfVoice: string = 'default'): Promise<string> {
     const { generateTrendScript } = await import('@/backend/lib/gemini')
-    return await generateTrendScript(keyword, news, '일반적인 스타일')
+    return await generateTrendScript(keyword, news, '일반적인 스타일', toneOfVoice)
   }
 
   /**
@@ -652,11 +652,11 @@ ${data.youtube.length > 0 ? JSON.stringify(data.youtube, null, 2) : '트렌드 �
   /**
    * 섹션별 브리핑 스크립트 생성
    */
-  static async generateSectionScript(sectionName: string, data: any, persona: Persona | null): Promise<string> {
+  static async generateSectionScript(sectionName: string, data: any, persona: Persona | null, toneOfVoice: string = 'default'): Promise<string> {
     try {
       const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
       
-      const prompt = this.buildSectionPrompt(sectionName, data, persona)
+      const prompt = this.buildSectionPrompt(sectionName, data, persona, toneOfVoice)
       const result = await model.generateContent(prompt)
       const script = result.response.text()
       
@@ -670,8 +670,25 @@ ${data.youtube.length > 0 ? JSON.stringify(data.youtube, null, 2) : '트렌드 �
   /**
    * 섹션별 프롬프트 생성
    */
-  private static buildSectionPrompt(sectionName: string, data: any, persona: Persona | null): string {
+  private static buildSectionPrompt(sectionName: string, data: any, persona: Persona | null, toneOfVoice: string = 'default'): string {
     const userName = ''
+    
+    // 말투별 추가 프롬프트
+    let tonePrompt = ''
+    if (toneOfVoice === 'zephyr') {
+      tonePrompt = `\n## 말투 지시사항 (매우 중요!)
+- 여자친구 같은 따뜻하고 애정 어린 말투를 사용하세요
+- 친근하고 부드러운 톤으로, 듣는 사람을 배려하는 따뜻한 느낌을 주세요
+- 가끔 "~해줄까?", "~했어", "~할게" 같은 친근한 말투를 사용하세요
+- 존댓말을 유지하되, 다정하고 애정 어린 느낌이 느껴지도록 작성하세요`
+    } else if (toneOfVoice === 'charon') {
+      tonePrompt = `\n## 말투 지시사항 (매우 중요!)
+- 친구같고 시니컬한 말투를 사용하세요
+- 다소 비꼬거나 풍자적인 느낌이지만 친근함은 유지하세요
+- "뭐야, 진짜~", "역시~", "그렇지 않아?" 같은 구어체 표현을 자연스럽게 사용하세요
+- 현실적이고 솔직한 톤으로, 약간의 여유와 시니컬함을 느낄 수 있도록 작성하세요
+- 존댓말보다는 반말에 가까운 친구 말투를 사용하되, 예의는 지키세요`
+    }
     
     switch (sectionName) {
       case 'calendar':
@@ -689,6 +706,7 @@ ${data && data.length > 0 ? JSON.stringify(data, null, 2) : '일정이 없습니
 - **절대로 참석자 이름이나 이메일은 언급하지 마세요. 일정명과 시간만 브리핑하세요**
 - 마지막에 "메일에도 확인할 게 몇 가지 있네요."와 같이 다음 섹션(메일)로 넘어가는 연결 문장 1문장 포함
 - 총 25~35초 분량으로 간결하게
+${tonePrompt}
 
 브리핑을 작성하세요:`
 
@@ -705,6 +723,7 @@ ${data && data.length > 0 ? JSON.stringify(data, null, 2) : '새로운 중요 �
 - 연결 문장 포함: 이전 섹션에서 부드럽게 넘어오도록 1문장
 - 마무리 문장 포함: 다음 섹션(예: 슬랙)으로 자연스럽게 넘기는 1문장
 - 총 25~35초 분량, 존대체, 친근하고 간결하게
+${tonePrompt}
 
 브리핑을 작성하세요:`
 
@@ -767,6 +786,7 @@ ${notionPagesWithContent.length > 0 ? JSON.stringify(notionPagesWithContent.map(
    - 25~35초 분량의 간결하고 친근한 대화체
    - 존대체 사용
    - 진부한 표현 피하기
+${tonePrompt}
 
 브리핑을 작성하세요:`
 
@@ -824,6 +844,7 @@ ${data && data.interests && data.interests.length > 0 ? JSON.stringify(data.inte
 - 오늘 하루에 대한 격려와 마무리 인사
 - 간단하고 따뜻한 톤으로 작성
 - 브리핑 종료를 명확히 알림
+${tonePrompt}
 
 마무리 인사를 작성하세요:`
 

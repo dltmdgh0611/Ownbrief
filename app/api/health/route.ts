@@ -49,7 +49,8 @@ export async function GET() {
       if (!process.env.GEMINI_API_KEY) {
         throw new Error('API key not configured')
       }
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+      const { createGeminiClient } = await import('@/backend/lib/gemini')
+      const genAI = createGeminiClient()
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
       
       // Simple test request
@@ -81,7 +82,8 @@ export async function GET() {
       }
       
       // Test with actual TTS model
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+      const { createGeminiClient } = await import('@/backend/lib/gemini')
+      const genAI = createGeminiClient()
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-tts" })
       
       // Simple test - just check if model is accessible

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { createGeminiClient } from '@/backend/lib/gemini'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const genAI = createGeminiClient()
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

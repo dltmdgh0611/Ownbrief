@@ -14,6 +14,9 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # API 키들
+# Gemini API 키 - 여러 개를 사용하려면 쉼표로 구분하세요
+# 예: GEMINI_API_KEY=key1,key2,key3
+# 첫 번째 키에서 429 (too many requests) 에러 발생 시 자동으로 다음 키로 전환됩니다
 GEMINI_API_KEY=your-gemini-api-key
 YOUTUBE_API_KEY=your-youtube-api-key
 OPENAI_API_KEY=your-openai-api-key

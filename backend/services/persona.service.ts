@@ -4,9 +4,9 @@ import { GmailClient } from '../lib/gmail'
 import { YouTubeClient } from '../lib/youtube'
 import { SlackClient } from '../lib/slack'
 import { NotionClient } from '../lib/notion'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { createGeminiClient } from '../lib/gemini'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
+const genAI = createGeminiClient()
 
 export interface Persona {
   workStyle: 'morning-person' | 'night-owl' | 'flexible'

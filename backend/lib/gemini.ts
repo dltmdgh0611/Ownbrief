@@ -1,14 +1,105 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-// API 키 검증
-if (!process.env.GEMINI_API_KEY) {
-  console.error('❌ GEMINI_API_KEY가 필수입니다!')
-  console.error('📝 .env.local 파일에 GEMINI_API_KEY를 추가하세요.')
-  throw new Error('GEMINI_API_KEY 환경 변수가 필요합니다.')
+/**
+ * Gemini API 키 목록 로드 (쉼표로 구분된 문자열 또는 단일 키)
+ */
+function getGeminiApiKeys(): string[] {
+  const apiKeyEnv = process.env.GEMINI_API_KEY || ''
+  
+  if (!apiKeyEnv) {
+    console.error('❌ GEMINI_API_KEY가 필수입니다!')
+    console.error('📝 .env.local 파일에 GEMINI_API_KEY를 추가하세요.')
+    console.error('📝 여러 키를 사용하려면 쉼표로 구분하세요: GEMINI_API_KEY=key1,key2,key3')
+    throw new Error('GEMINI_API_KEY 환경 변수가 필요합니다.')
+  }
+
+  // 쉼표로 구분된 키들 파싱
+  const keys = apiKeyEnv
+    .split(',')
+    .map(key => key.trim())
+    .filter(key => key.length > 0)
+
+  if (keys.length === 0) {
+    throw new Error('GEMINI_API_KEY가 유효하지 않습니다.')
+  }
+
+  console.log(`✅ Gemini API 키 ${keys.length}개 로드됨`)
+  return keys
 }
 
-// Gemini API 클라이언트
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+// API 키 목록
+const GEMINI_API_KEYS = getGeminiApiKeys()
+
+// 현재 키 인덱스 (스레드 안전하지 않지만, 여러 키를 순환하기 위해 사용)
+let currentKeyIndex = 0
+
+/**
+ * 다음 API 키 가져오기 (로테이션)
+ */
+function getNextApiKey(): string {
+  return GEMINI_API_KEYS[currentKeyIndex]
+}
+
+/**
+ * 다음 API 키로 전환
+ */
+function rotateToNextKey(): string {
+  currentKeyIndex = (currentKeyIndex + 1) % GEMINI_API_KEYS.length
+  console.log(`🔄 Gemini API 키 전환: 키 ${currentKeyIndex + 1}/${GEMINI_API_KEYS.length} 사용`)
+  return GEMINI_API_KEYS[currentKeyIndex]
+}
+
+/**
+ * Gemini API 클라이언트 생성
+ */
+export function createGeminiClient(apiKey?: string): GoogleGenerativeAI {
+  const key = apiKey || getNextApiKey()
+  return new GoogleGenerativeAI(key)
+}
+
+/**
+ * 429 에러 발생 시 다음 API 키로 전환하고 재시도하는 헬퍼 함수
+ */
+export async function withKeyRotation<T>(
+  fn: (client: GoogleGenerativeAI) => Promise<T>,
+  maxRetries?: number
+): Promise<T> {
+  const MAX_RETRIES = maxRetries || GEMINI_API_KEYS.length * 2
+  const RETRY_DELAY = 5000
+  let lastKeyIndex = currentKeyIndex
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const client = createGeminiClient()
+      return await fn(client)
+    } catch (error: any) {
+      // 429 에러 (할당량 초과) 체크 - 다음 키로 전환
+      if (error.status === 429 && attempt < MAX_RETRIES) {
+        console.warn(`⚠️ 할당량 초과 (시도 ${attempt}/${MAX_RETRIES}, 키 ${currentKeyIndex + 1}/${GEMINI_API_KEYS.length})`)
+        
+        // 다음 키로 전환
+        rotateToNextKey()
+        console.log(`🔄 다음 API 키로 전환: 키 ${currentKeyIndex + 1}/${GEMINI_API_KEYS.length}`)
+        
+        // 모든 키를 시도했으면 잠시 대기 후 다시 시작
+        if (currentKeyIndex === lastKeyIndex && attempt > GEMINI_API_KEYS.length) {
+          console.warn(`⏳ 모든 키를 시도했으므로 ${RETRY_DELAY/1000}초 후 재시도...`)
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
+          lastKeyIndex = currentKeyIndex
+        }
+        continue
+      }
+      
+      // 다른 에러거나 최대 재시도 횟수 초과
+      throw error
+    }
+  }
+  
+  throw new Error('최대 재시도 횟수를 초과했습니다.')
+}
+
+// 기본 Gemini API 클라이언트 (하위 호환성)
+const genAI = createGeminiClient()
 
 console.log('✅ Gemini API 사용 가능')
 
@@ -17,12 +108,15 @@ export async function generatePodcastScript(transcriptText: string): Promise<str
   console.log(`📝 자막 텍스트 길이: ${transcriptText.length}자`)
   console.log(`📝 자막 텍스트 미리보기: ${transcriptText.substring(0, 200)}...`)
   
-  const MAX_RETRIES = 3
+  const MAX_RETRIES = GEMINI_API_KEYS.length * 2 // 키 개수 * 2만큼 재시도
   const RETRY_DELAY = 5000 // 5초
+  
+  let lastKeyIndex = currentKeyIndex
   
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+      const client = createGeminiClient()
+      const model = client.getGenerativeModel({ model: "gemini-2.5-flash" })
       
       const prompt = `
 다음은 유튜브 동영상들의 자막 텍스트입니다. 이 내용을 바탕으로 1500자 이내의 분량 팟캐스트 스크립트를 작성해주세요.
@@ -42,7 +136,7 @@ ${transcriptText}
 팟캐스트 스크립트 (호스트와 게스트의 대화 형태, 2500자 분량):
 `
 
-      console.log(`📤 Gemini API 요청 중... (시도 ${attempt}/${MAX_RETRIES})`)
+      console.log(`📤 Gemini API 요청 중... (시도 ${attempt}/${MAX_RETRIES}, 키 ${currentKeyIndex + 1}/${GEMINI_API_KEYS.length})`)
       const result = await model.generateContent({
         contents: [
           {
@@ -74,10 +168,20 @@ ${transcriptText}
       return script
       
     } catch (error: any) {
-      // 429 에러 (할당량 초과) 체크
+      // 429 에러 (할당량 초과) 체크 - 다음 키로 전환
       if (error.status === 429 && attempt < MAX_RETRIES) {
-        console.warn(`⚠️ 할당량 초과 (시도 ${attempt}/${MAX_RETRIES}). ${RETRY_DELAY/1000}초 후 재시도...`)
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
+        console.warn(`⚠️ 할당량 초과 (시도 ${attempt}/${MAX_RETRIES}, 키 ${currentKeyIndex + 1}/${GEMINI_API_KEYS.length})`)
+        
+        // 다음 키로 전환
+        rotateToNextKey()
+        console.log(`🔄 다음 API 키로 전환: 키 ${currentKeyIndex + 1}/${GEMINI_API_KEYS.length}`)
+        
+        // 모든 키를 시도했으면 잠시 대기 후 다시 시작
+        if (currentKeyIndex === lastKeyIndex && attempt > GEMINI_API_KEYS.length) {
+          console.warn(`⏳ 모든 키를 시도했으므로 ${RETRY_DELAY/1000}초 후 재시도...`)
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
+          lastKeyIndex = currentKeyIndex
+        }
         continue
       }
       
@@ -90,7 +194,7 @@ ${transcriptText}
       })
       
       if (error.status === 429) {
-        throw new Error('할당량을 초과했습니다. 잠시 후 다시 시도하거나 유료 플랜으로 업그레이드하세요.')
+        throw new Error('모든 API 키의 할당량을 초과했습니다. 잠시 후 다시 시도하거나 유료 플랜으로 업그레이드하세요.')
       }
       
       throw new Error('팟캐스트 스크립트 생성에 실패했습니다.')
@@ -156,14 +260,17 @@ export async function generateMultiSpeakerSpeech(script: string): Promise<AudioR
     script = script.substring(0, 32000)
   }
   
-  const MAX_RETRIES = 3
+  const MAX_RETRIES = GEMINI_API_KEYS.length * 2 // 키 개수 * 2만큼 재시도
   const RETRY_DELAY = 5000 // 5초
+  
+  let lastKeyIndex = currentKeyIndex
   
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      console.log(`🎤 TTS API 요청 중... (시도 ${attempt}/${MAX_RETRIES})`)
-    // Gemini 2.5 Flash Preview TTS 모델 사용
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-tts" })
+      console.log(`🎤 TTS API 요청 중... (시도 ${attempt}/${MAX_RETRIES}, 키 ${currentKeyIndex + 1}/${GEMINI_API_KEYS.length})`)
+      // Gemini 2.5 Flash Preview TTS 모델 사용
+      const client = createGeminiClient()
+      const model = client.getGenerativeModel({ model: "gemini-2.5-flash-preview-tts" })
     
     // 다중 화자 설정
     const response = await model.generateContent({
@@ -248,10 +355,20 @@ export async function generateMultiSpeakerSpeech(script: string): Promise<AudioR
       }
       
     } catch (error: any) {
-      // 429 에러 (할당량 초과) 체크
+      // 429 에러 (할당량 초과) 체크 - 다음 키로 전환
       if (error.status === 429 && attempt < MAX_RETRIES) {
-        console.warn(`⚠️ TTS 할당량 초과 (시도 ${attempt}/${MAX_RETRIES}). ${RETRY_DELAY/1000}초 후 재시도...`)
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
+        console.warn(`⚠️ TTS 할당량 초과 (시도 ${attempt}/${MAX_RETRIES}, 키 ${currentKeyIndex + 1}/${GEMINI_API_KEYS.length})`)
+        
+        // 다음 키로 전환
+        rotateToNextKey()
+        console.log(`🔄 다음 API 키로 전환: 키 ${currentKeyIndex + 1}/${GEMINI_API_KEYS.length}`)
+        
+        // 모든 키를 시도했으면 잠시 대기 후 다시 시작
+        if (currentKeyIndex === lastKeyIndex && attempt > GEMINI_API_KEYS.length) {
+          console.warn(`⏳ 모든 키를 시도했으므로 ${RETRY_DELAY/1000}초 후 재시도...`)
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
+          lastKeyIndex = currentKeyIndex
+        }
         continue
       }
       
@@ -269,7 +386,7 @@ export async function generateMultiSpeakerSpeech(script: string): Promise<AudioR
       console.error('📝 문제가 된 스크립트:', script.substring(0, 500) + '...')
       
       if (error.status === 429) {
-        throw new Error('TTS 할당량을 초과했습니다. 잠시 후 다시 시도하거나 유료 플랜으로 업그레이드하세요.')
+        throw new Error('모든 API 키의 TTS 할당량을 초과했습니다. 잠시 후 다시 시도하거나 유료 플랜으로 업그레이드하세요.')
       }
       
       throw new Error('Gemini 네이티브 TTS 음성 생성에 실패했습니다.')
@@ -431,10 +548,28 @@ export async function searchNewsWithGrounding(
 export async function generateTrendScript(
   keyword: { level1: string, level2: string, level3: string },
   newsContent: string,
-  personaStyle: string
+  personaStyle: string,
+  toneOfVoice: string = 'default'
 ): Promise<string> {
   try {
     console.log(`✍️ 트렌드 대본 생성: ${keyword.level1} > ${keyword.level2} > ${keyword.level3}`)
+
+    // 말투별 추가 프롬프트
+    let tonePrompt = ''
+    if (toneOfVoice === 'zephyr') {
+      tonePrompt = `\n## 말투 지시사항 (매우 중요!)
+- 여자친구 같은 따뜻하고 애정 어린 말투를 사용하세요
+- 친근하고 부드러운 톤으로, 듣는 사람을 배려하는 따뜻한 느낌을 주세요
+- 가끔 "~해줄까?", "~했어", "~할게" 같은 친근한 말투를 사용하세요
+- 존댓말을 유지하되, 다정하고 애정 어린 느낌이 느껴지도록 작성하세요`
+    } else if (toneOfVoice === 'charon') {
+      tonePrompt = `\n## 말투 지시사항 (매우 중요!)
+- 친구같고 시니컬한 말투를 사용하세요
+- 다소 비꼬거나 풍자적인 느낌이지만 친근함은 유지하세요
+- "뭐야, 진짜~", "역시~", "그렇지 않아?" 같은 구어체 표현을 자연스럽게 사용하세요
+- 현실적이고 솔직한 톤으로, 약간의 여유와 시니컬함을 느낄 수 있도록 작성하세요
+- 존댓말보다는 반말에 가까운 친구 말투를 사용하되, 예의는 지키세요`
+    }
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
 
@@ -454,6 +589,7 @@ ${newsContent}
 5. **실제 뉴스 데이터만 사용**
 6. **반드시 300-500자 사이 (공백 포함)**
 7. 듣기 편한 자연스러운 문장
+${tonePrompt}
 
 **대본만 작성해주세요:**`
 
