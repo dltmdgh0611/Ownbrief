@@ -11,7 +11,7 @@ import { prisma } from '@/backend/lib/prisma'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60 // 60초 타임아웃 - 관심사 섹션 등 긴 텍스트 대응
+export const maxDuration = 120 // 120초 타임아웃 - 관심사 섹션 등 긴 텍스트 대응
 
 /**
  * 다음 섹션 요청 API
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     // 타임아웃 처리를 위한 AbortController
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 60000) // 60초 타임아웃 - 관심사 섹션 등 긴 텍스트 대응
+    const timeoutId = setTimeout(() => controller.abort(), 120000) // 120초 타임아웃 - 관심사 섹션 등 긴 텍스트 대응
 
     try {
       // 다음 섹션 데이터 수집 및 스크립트 생성
