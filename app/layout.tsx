@@ -32,9 +32,7 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>
-          <div className="mobile-app-container">
-            {children}
-          </div>
+          {children}
         </Providers>
       </body>
     </html>

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { ArrowLeft, Play, Pause } from 'lucide-react'
 import { AudioEngine } from '@/frontend/lib/audio-engine'
+import Prism from '@/components/Prism'
 
 type ToneOfVoice = 'default' | 'zephyr' | 'charon'
 
@@ -801,52 +802,78 @@ ${dateStr} 브리핑을 시작하겠습니다.`
 
   if (status === 'loading') {
     return (
-      <div className="h-screen flex items-center justify-center bg-gradient-to-b from-teal-800 to-teal-600">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
+      <div className="h-screen relative flex items-center justify-center">
+        <div className="absolute inset-0 z-0">
+          <Prism
+            animationType="rotate"
+            suspendWhenOffscreen={true}
+            transparent={true}
+            hueShift={0.3}
+            glow={1.2}
+            scale={3.5}
+          />
+          <div className="absolute inset-0 bg-black/40"></div>
+        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent relative z-10"></div>
       </div>
     )
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-b from-teal-800 via-teal-700 to-teal-600 text-white overflow-hidden" style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif' }}>
+    <div className="h-screen relative flex flex-col text-white overflow-hidden" style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif' }}>
+      {/* Prism 배경 */}
+      <div className="absolute inset-0 z-0">
+        <Prism
+          animationType="rotate"
+          suspendWhenOffscreen={true}
+          transparent={true}
+          hueShift={0.3}
+          glow={1.2}
+          scale={3.5}
+        />
+        <div className="absolute inset-0 bg-black/40"></div>
+      </div>
       {/* 상단 헤더 */}
-      <div className="flex-shrink-0 px-4 py-3 flex items-center justify-between">
-        <button
-          onClick={() => router.back()}
-          className="p-2 hover:bg-white/10 rounded-full transition-colors"
-        >
-          <ArrowLeft className="w-6 h-6" />
-        </button>
+      <div className="flex-shrink-0 px-6 py-3 border-b border-white/10 relative z-10">
+        <div className="max-w-[480px] mx-auto flex items-center justify-between">
+          <button
+            onClick={() => router.back()}
+            className="liquid-glass-control p-2 rounded-full"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
 
-        <div className="flex items-center gap-2 bg-white/10 rounded-full p-1">
-          <button
-            onClick={() => setViewMode('text')}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              viewMode === 'text' 
-                ? 'bg-white/20 text-white' 
-                : 'text-white/70 hover:text-white'
-            }`}
-          >
-            텍스트
-          </button>
-          <button
-            onClick={() => setViewMode('card')}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              viewMode === 'card' 
-                ? 'bg-white/20 text-white' 
-                : 'text-white/70 hover:text-white'
-            }`}
-          >
-            카드
-          </button>
+          <div className="flex items-center gap-2 liquid-glass rounded-full p-1">
+            <button
+              onClick={() => setViewMode('text')}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                viewMode === 'text'
+                  ? 'liquid-glass-toggle active'
+                  : 'text-white/70 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              텍스트
+            </button>
+            <button
+              onClick={() => setViewMode('card')}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                viewMode === 'card'
+                  ? 'liquid-glass-toggle active'
+                  : 'text-white/70 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              카드
+            </button>
+          </div>
         </div>
       </div>
 
       {/* 메인 콘텐츠 */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        {/* 텍스트 뷰 */}
-        {viewMode === 'text' && (
-          <div className="space-y-6 text-lg leading-relaxed" style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif' }}>
+      <div className="flex-1 overflow-y-auto px-6 py-4 relative z-10">
+        <div className="max-w-[480px] mx-auto">
+          {/* 텍스트 뷰 */}
+          {viewMode === 'text' && (
+            <div className="space-y-4 text-xl leading-relaxed" style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif' }}>
             {scriptSections.length > 0 ? (
             scriptSections.map((item, sectionIdx) => (
               <div
@@ -858,7 +885,7 @@ ${dateStr} 브리핑을 시작하겠습니다.`
               >
                 {/* 섹션 타이틀 */}
                 {item.index > 0 && (
-                  <div className={`text-sm mb-3 transition-all duration-300 ${
+                  <div className={`text-xs mb-2 transition-all duration-300 ${
                     currentSection === item.section ? 'text-white/90 font-medium' : 'text-white/30'
                   }`}>
                     [ {item.title} ]
@@ -866,7 +893,7 @@ ${dateStr} 브리핑을 시작하겠습니다.`
                 )}
                 
                 {/* 문단들 */}
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {item.paragraphs && item.paragraphs.length > 0 ? (
                     item.paragraphs.map((paragraph, paragraphIdx) => {
                       const isCurrentSection = currentSection === item.section
@@ -902,28 +929,28 @@ ${dateStr} 브리핑을 시작하겠습니다.`
             ))
           ) : isGenerating ? (
             <>
-              <h1 className="text-xl font-medium mb-4">안녕하세요.</h1>
-              <p className="opacity-90 animate-pulse">브리핑을 생성하고 있습니다...</p>
+              <h1 className="text-lg font-medium mb-3">안녕하세요.</h1>
+              <p className="text-sm opacity-90 animate-pulse">브리핑을 생성하고 있습니다...</p>
             </>
           ) : (
             <>
-              <h1 className="text-xl font-medium mb-4">안녕하세요.</h1>
-              <p className="opacity-90">브리핑을 준비 중입니다...</p>
+              <h1 className="text-lg font-medium mb-3">안녕하세요.</h1>
+              <p className="text-sm opacity-90">브리핑을 준비 중입니다...</p>
               <button
                 onClick={handleGenerateBriefing}
-                className="mt-4 px-6 py-3 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                className="mt-4 px-5 py-2.5 liquid-glass-button rounded-lg transition-colors text-sm"
               >
                 브리핑 시작
               </button>
             </>
           )}
-          </div>
-        )}
+            </div>
+          )}
 
-        {/* 카드 뷰 */}
-        {viewMode === 'card' && (
-          <div className="space-y-6">
-            <div className="text-2xl font-bold text-white mb-4">
+          {/* 카드 뷰 */}
+          {viewMode === 'card' && (
+            <div className="space-y-4">
+            <div className="text-lg font-bold text-white mb-3 text-over-prism">
               {new Date().toLocaleDateString('ko-KR', {
                 year: 'numeric',
                 month: 'long',
@@ -932,16 +959,16 @@ ${dateStr} 브리핑을 시작하겠습니다.`
               })}
             </div>
 
-            <div className="text-xl text-white/90 mb-6">
+            <div className="text-base text-white/90 mb-4 text-over-prism">
               좋은 아침입니다! 👋
             </div>
 
-            <div className="text-lg font-medium text-white mb-4">
+            <div className="text-sm font-medium text-white mb-3 text-over-prism">
               오늘의 브리핑을 시작합니다
             </div>
 
             {/* 데이터 카드들 */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               {sectionData.length > 0 ? (
                 sectionData.map((section, idx) => {
                   // 슬랙/노션(write) 섹션은 표시하지 않음
@@ -950,12 +977,12 @@ ${dateStr} 브리핑을 시작하겠습니다.`
                   }
                   
                   return (
-                    <div key={idx} className="space-y-3">
+                    <div key={idx} className="space-y-2">
                       {/* 섹션 헤더 - 이모티콘 제거, 미니멀 디자인 */}
                       <div className="flex items-center gap-2 text-white">
-                        <h3 className="text-lg font-semibold">{section.title}</h3>
+                        <h3 className="text-base font-semibold text-over-prism">{section.title}</h3>
                         {Array.isArray(section.data) && (
-                          <span className="text-sm opacity-70">{section.data.length}건</span>
+                          <span className="text-xs opacity-70">{section.data.length}건</span>
                         )}
                       </div>
 
@@ -968,21 +995,21 @@ ${dateStr} 브리핑을 시작하겠습니다.`
                             const shortDescription = description.length > 30 ? description.substring(0, 30) + '...' : description
                             
                             return (
-                              <div 
+                              <div
                                 key={emailIdx}
-                                className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-colors"
+                                className="liquid-glass-card rounded-lg p-4"
                               >
                                 <div className="flex items-start justify-between mb-2">
                                   <div className="flex-1">
-                                    <div className="font-medium text-white mb-1">
+                                    <div className="font-medium text-white mb-1 text-sm">
                                       {email.from || email.sender || '발신자 정보 없음'}
                                     </div>
-                                    <div className="text-sm text-white/70 mb-2">
+                                    <div className="text-xs text-white/70 mb-2">
                                       {shortDescription}
                                     </div>
                                   </div>
                                   {email.urgent && (
-                                    <span className="px-2 py-1 bg-red-500/30 text-red-200 text-xs rounded-full">
+                                    <span className="px-1.5 py-0.5 bg-red-500/30 text-red-200 text-xs rounded-full">
                                       긴급
                                     </span>
                                   )}
@@ -1013,22 +1040,22 @@ ${dateStr} 브리핑을 시작하겠습니다.`
                             }
                             
                             return (
-                              <div 
+                              <div
                                 key={eventIdx}
-                                className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-colors"
+                                className="liquid-glass-card rounded-lg p-4"
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex-1">
-                                    <div className="font-medium text-white mb-1">
+                                    <div className="font-medium text-white mb-1 text-sm">
                                       {event.summary || event.title || '제목 없음'}
                                     </div>
                                     {event.location && (
-                                      <div className="text-sm text-white/60">
+                                      <div className="text-xs text-white/60">
                                         {event.location}
                                       </div>
                                     )}
                                   </div>
-                                  <div className="text-sm text-white/70 text-right whitespace-nowrap ml-4">
+                                  <div className="text-xs text-white/70 text-right whitespace-nowrap ml-4">
                                     {timeDisplay}
                                   </div>
                                 </div>
@@ -1040,7 +1067,7 @@ ${dateStr} 브리핑을 시작하겠습니다.`
 
                       {/* 트렌드 섹션 (trend1, trend2, trend3) */}
                       {(section.section === 'trend1' || section.section === 'trend2' || section.section === 'trend3') && section.data && (
-                        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-colors">
+                        <div className="liquid-glass-card rounded-lg p-4">
                           <div className="font-medium text-white mb-2">
                             {section.data.keyword ? 
                               `${section.data.keyword.level2} - ${section.data.keyword.level3}` : 
@@ -1070,29 +1097,31 @@ ${dateStr} 브리핑을 시작하겠습니다.`
                 </div>
               )}
             </div>
-          </div>
-        )}
+            </div>
+          )}
 
-        {/* 에러 메시지 */}
-        {error && (
-          <div className="mt-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
-            <p className="text-sm">{error}</p>
-          </div>
-        )}
+          {/* 에러 메시지 */}
+          {error && (
+            <div className="mt-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg">
+              <p className="text-sm">{error}</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 하단 컨트롤 */}
-      <div className="flex-shrink-0 px-6 pb-8 pt-4">
+      <div className="flex-shrink-0 px-6 pb-8 pt-4 border-t border-white/10 relative z-10">
+        <div className="max-w-[480px] mx-auto">
         {/* 재생 속도 버튼 */}
-        <div className="flex items-center justify-center gap-3 mb-6">
+        <div className="flex items-center justify-center gap-2 mb-4">
           {speedOptions.map((speed) => (
             <button
               key={speed}
               onClick={() => setPlaybackSpeed(speed)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                 playbackSpeed === speed
-                  ? 'bg-white/30 text-white scale-105'
-                  : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                  ? 'liquid-glass-toggle active scale-105'
+                  : 'liquid-glass text-white/70 hover:text-white'
               }`}
             >
               {speed}x
@@ -1105,14 +1134,15 @@ ${dateStr} 브리핑을 시작하겠습니다.`
           <button
             onClick={togglePlayPause}
             disabled={!script && !isGenerating}
-            className="w-16 h-16 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
+            className="w-14 h-14 rounded-full liquid-glass-control flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPlaying ? (
-              <Pause className="w-8 h-8 text-white" />
+              <Pause className="w-7 h-7 text-white" />
             ) : (
-              <Play className="w-8 h-8 text-white ml-1" />
+              <Play className="w-7 h-7 text-white ml-0.5" />
             )}
           </button>
+        </div>
         </div>
       </div>
     </div>

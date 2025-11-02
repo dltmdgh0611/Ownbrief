@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Sparkles, ChevronRight, Check, Loader2, Mic2, CheckCircle2, Edit } from 'lucide-react'
+import Prism from '@/components/Prism'
 
 export default function OnboardingPage() {
   const { data: session, status } = useSession()
@@ -129,8 +130,20 @@ export default function OnboardingPage() {
 
   if (status === 'loading') {
     return (
-      <div className="h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-brand" />
+      <div className="h-screen relative flex items-center justify-center">
+        <div className="absolute inset-0 z-0">
+          <Prism
+            animationType="rotate"
+            suspendWhenOffscreen={true}
+            transparent={true}
+            hueShift={0.3}
+            glow={0.4}
+            bloom={0.6}
+            scale={3.2}
+          />
+          <div className="absolute inset-0 bg-black/40"></div>
+        </div>
+        <Loader2 className="w-8 h-8 animate-spin text-white relative z-10" />
       </div>
     )
   }
@@ -138,24 +151,39 @@ export default function OnboardingPage() {
   // Step 1: 환영 + Google 연결
   if (step === 1) {
     return (
-      <div className="h-screen bg-gradient-to-b from-primary-50 to-white flex flex-col items-center justify-center p-6">
-        <div className="w-20 h-20 bg-gradient-to-br from-brand to-brand-light rounded-3xl flex items-center justify-center mb-6 shadow-xl">
-          <Mic2 className="w-10 h-10 text-white" />
+      <div className="h-screen relative flex flex-col items-center justify-center p-6">
+        <div className="absolute inset-0 z-0">
+          <Prism
+            animationType="rotate"
+            suspendWhenOffscreen={true}
+            transparent={true}
+            hueShift={0.3}
+            glow={0.4}
+            bloom={0.6}
+            scale={3.2}
+          />
+          <div className="absolute inset-0 bg-black/40"></div>
         </div>
-        
-        <h1 className="text-3xl font-bold text-brand-dark mb-4 text-center">
-          Hello!
-          <br />
-          OwnBrief에 오신걸 환영합니다
-        </h1>
-        
-        <p className="text-gray-600 text-center mb-8 max-w-md">
-          당신만을 위한 맞춤 브리핑을 만들어드립니다.
-          <br />
-          데이터를 분석하여 페르소나를 생성하고 있어요...
-        </p>
 
-        <Loader2 className="w-8 h-8 animate-spin text-brand" />
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-20 h-20 liquid-glass rounded-3xl flex items-center justify-center mb-6">
+            <Mic2 className="w-10 h-10 text-white" />
+          </div>
+
+          <h1 className="text-3xl font-bold text-white mb-4 text-center text-over-prism">
+            Hello!
+            <br />
+            OwnBrief에 오신걸 환영합니다
+          </h1>
+
+          <p className="text-white/90 text-center mb-8 max-w-md text-over-prism">
+            당신만을 위한 맞춤 브리핑을 만들어드립니다.
+            <br />
+            데이터를 분석하여 페르소나를 생성하고 있어요...
+          </p>
+
+          <Loader2 className="w-8 h-8 animate-spin text-white" />
+        </div>
       </div>
     )
   }
@@ -163,35 +191,50 @@ export default function OnboardingPage() {
   // Step 2: 페르소나 생성 시작
   if (step === 2) {
     return (
-      <div className="h-screen bg-gradient-to-b from-primary-50 to-white flex flex-col items-center justify-center p-6">
-        <div className="w-20 h-20 bg-gradient-to-br from-brand to-brand-light rounded-3xl flex items-center justify-center mb-6 shadow-xl">
-          <Sparkles className="w-10 h-10 text-white" />
+      <div className="h-screen relative flex flex-col items-center justify-center p-6">
+        <div className="absolute inset-0 z-0">
+          <Prism
+            animationType="rotate"
+            suspendWhenOffscreen={true}
+            transparent={true}
+            hueShift={0.3}
+            glow={0.4}
+            bloom={0.6}
+            scale={3.2}
+          />
+          <div className="absolute inset-0 bg-black/40"></div>
         </div>
-        
-        <h1 className="text-3xl font-bold text-brand-dark mb-4 text-center">
-          페르소나 생성
-        </h1>
-        
-        <p className="text-gray-600 text-center mb-8 max-w-md">
-          연동된 데이터를 분석하여
-          <br />
-          당신의 페르소나를 생성합니다
-        </p>
 
-        <button
-          onClick={handleGeneratePersona}
-          disabled={loading}
-          className="px-8 py-4 bg-gradient-to-r from-brand to-brand-light text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl active:scale-95 transition-all disabled:opacity-50"
-        >
-          {loading ? (
-            <span className="flex items-center space-x-2">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>생성 중...</span>
-            </span>
-          ) : (
-            '페르소나 생성하기'
-          )}
-        </button>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-20 h-20 liquid-glass rounded-3xl flex items-center justify-center mb-6">
+            <Sparkles className="w-10 h-10 text-white" />
+          </div>
+
+          <h1 className="text-3xl font-bold text-white mb-4 text-center text-over-prism">
+            페르소나 생성
+          </h1>
+
+          <p className="text-white/90 text-center mb-8 max-w-md text-over-prism">
+            연동된 데이터를 분석하여
+            <br />
+            당신의 페르소나를 생성합니다
+          </p>
+
+          <button
+            onClick={handleGeneratePersona}
+            disabled={loading}
+            className="liquid-glass-button px-8 py-4 rounded-xl font-bold text-lg disabled:opacity-50"
+          >
+            {loading ? (
+              <span className="flex items-center space-x-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>생성 중...</span>
+              </span>
+            ) : (
+              '페르소나 생성하기'
+            )}
+          </button>
+        </div>
       </div>
     )
   }
@@ -199,31 +242,46 @@ export default function OnboardingPage() {
   // Step 3: 페르소나 생성 중 (로딩)
   if (step === 3) {
     return (
-      <div className="h-screen bg-gradient-to-b from-primary-50 to-white flex flex-col items-center justify-center p-6">
-        <Loader2 className="w-16 h-16 animate-spin text-brand mb-6" />
-        
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          당신의 데이터를 분석하고 있어요...
-        </h2>
-        
-        <p className="text-gray-600 text-center max-w-md">
-          Calendar, Gmail, YouTube 등의 데이터를 바탕으로
-          <br />
-          AI가 페르소나를 생성하고 있습니다
-        </p>
+      <div className="h-screen relative flex flex-col items-center justify-center p-6">
+        <div className="absolute inset-0 z-0">
+          <Prism
+            animationType="rotate"
+            suspendWhenOffscreen={true}
+            transparent={true}
+            hueShift={0.3}
+            glow={0.4}
+            bloom={0.6}
+            scale={3.2}
+          />
+          <div className="absolute inset-0 bg-black/40"></div>
+        </div>
 
-        <div className="mt-8 space-y-3">
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span>일정 패턴 분석 중...</span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span>관심사 추출 중...</span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span>업무 스타일 파악 중...</span>
+        <div className="relative z-10 flex flex-col items-center">
+          <Loader2 className="w-16 h-16 animate-spin text-white mb-6" />
+
+          <h2 className="text-2xl font-bold text-white mb-2 text-over-prism">
+            당신의 데이터를 분석하고 있어요...
+          </h2>
+
+          <p className="text-white/90 text-center max-w-md text-over-prism">
+            Calendar, Gmail, YouTube 등의 데이터를 바탕으로
+            <br />
+            AI가 페르소나를 생성하고 있습니다
+          </p>
+
+          <div className="mt-8 space-y-3">
+            <div className="flex items-center space-x-2 text-sm text-white/80">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>일정 패턴 분석 중...</span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm text-white/80">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>관심사 추출 중...</span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm text-white/80">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>업무 스타일 파악 중...</span>
+            </div>
           </div>
         </div>
       </div>
@@ -234,42 +292,53 @@ export default function OnboardingPage() {
   if (step === 4 && persona) {
     if (isEditing) {
       return (
-        <div className="h-screen bg-gradient-to-b from-primary-50 to-white overflow-y-auto p-6">
-          <div className="max-w-2xl mx-auto py-12">
-            <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">
+        <div className="h-screen relative overflow-y-auto p-6">
+          <div className="absolute inset-0 z-0">
+            <Prism
+              animationType="rotate"
+              suspendWhenOffscreen={true}
+              transparent={true}
+              hueShift={0.3}
+              glow={1.2}
+              scale={3.2}
+            />
+          </div>
+
+          <div className="max-w-4xl mx-auto py-12 px-4 relative z-10">
+            <h1 className="text-3xl font-bold text-white mb-8 text-center text-over-prism">
               페르소나 수정
             </h1>
 
-            <div className="app-card p-6 space-y-6">
+            <div className="liquid-glass-card p-6 space-y-6 rounded-xl">
               {/* 업무 스타일 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-white mb-2">
                   업무 스타일
                 </label>
                 <select
                   value={feedback.workStyle}
                   onChange={(e) => setFeedback({ ...feedback, workStyle: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-transparent"
+                  className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:ring-2 focus:ring-white/50 focus:border-transparent"
                 >
-                  <option value="morning-person">아침형 인간</option>
-                  <option value="night-owl">저녁형 인간</option>
-                  <option value="flexible">유연한 스타일</option>
+                  <option value="morning-person" className="text-gray-900">아침형 인간</option>
+                  <option value="night-owl" className="text-gray-900">저녁형 인간</option>
+                  <option value="flexible" className="text-gray-900">유연한 스타일</option>
                 </select>
               </div>
 
               {/* 관심사 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-white mb-2">
                   관심사 (쉼표로 구분)
                 </label>
                 <input
                   type="text"
                   value={feedback.interests.join(', ')}
-                  onChange={(e) => setFeedback({ 
-                    ...feedback, 
+                  onChange={(e) => setFeedback({
+                    ...feedback,
                     interests: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
                   })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-transparent"
+                  className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-white/50 focus:border-transparent"
                   placeholder="AI, 스타트업, 기술"
                 />
               </div>
@@ -277,7 +346,7 @@ export default function OnboardingPage() {
               <button
                 onClick={handleSubmitFeedback}
                 disabled={loading}
-                className="w-full py-4 bg-gradient-to-r from-brand to-brand-light text-white rounded-xl font-bold shadow-lg hover:shadow-xl active:scale-95 transition-all disabled:opacity-50"
+                className="w-full liquid-glass-button py-4 rounded-xl font-bold disabled:opacity-50"
               >
                 {loading ? '저장 중...' : '저장하기'}
               </button>
@@ -288,37 +357,50 @@ export default function OnboardingPage() {
     }
 
     return (
-      <div className="h-screen bg-gradient-to-b from-primary-50 to-white overflow-y-auto p-6">
-        <div className="max-w-2xl mx-auto py-12">
+      <div className="h-screen relative overflow-y-auto p-6">
+        <div className="absolute inset-0 z-0">
+          <Prism
+            animationType="rotate"
+            suspendWhenOffscreen={true}
+            transparent={true}
+            hueShift={0.3}
+            glow={0.4}
+            bloom={0.6}
+            scale={3.2}
+          />
+          <div className="absolute inset-0 bg-black/40"></div>
+        </div>
+
+        <div className="max-w-4xl mx-auto py-12 px-4 relative z-10">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-brand to-brand-light rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 liquid-glass rounded-full flex items-center justify-center mx-auto mb-4">
               <Sparkles className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <h1 className="text-3xl font-bold text-white mb-2 text-over-prism">
               📊 분석 결과
             </h1>
-            <p className="text-gray-600">
+            <p className="text-white/90 text-over-prism">
               AI가 생성한 페르소나를 확인해주세요
             </p>
           </div>
 
-          <div className="app-card p-6 space-y-4 mb-6">
+          <div className="liquid-glass-card p-6 space-y-4 mb-6 rounded-xl">
             <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-1">업무 스타일</h3>
-              <p className="text-lg font-semibold text-gray-900">
-                {persona.workStyle === 'morning-person' ? '아침형 인간 🌅' : 
-                 persona.workStyle === 'night-owl' ? '저녁형 인간 🌙' : 
+              <h3 className="text-sm font-medium text-white/70 mb-1">업무 스타일</h3>
+              <p className="text-lg font-semibold text-white">
+                {persona.workStyle === 'morning-person' ? '아침형 인간 🌅' :
+                 persona.workStyle === 'night-owl' ? '저녁형 인간 🌙' :
                  '유연한 스타일 ⚡'}
               </p>
             </div>
 
             <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-1">관심사</h3>
+              <h3 className="text-sm font-medium text-white/70 mb-1">관심사</h3>
               <div className="flex flex-wrap gap-2">
                 {persona.interests?.map((interest: string) => (
                   <span
                     key={interest}
-                    className="px-3 py-1 bg-brand/10 text-brand rounded-lg text-sm font-medium"
+                    className="px-3 py-1 bg-white/20 text-white rounded-lg text-sm font-medium"
                   >
                     {interest}
                   </span>
@@ -330,16 +412,16 @@ export default function OnboardingPage() {
           <div className="grid grid-cols-2 gap-4">
             <button
               onClick={handleEditPersona}
-              className="py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors flex items-center justify-center space-x-2"
+              className="liquid-glass py-4 rounded-xl font-bold transition-colors flex items-center justify-center space-x-2"
             >
               <Edit className="w-5 h-5" />
               <span>수정할게요</span>
             </button>
-            
+
             <button
               onClick={handleConfirmPersona}
               disabled={loading}
-              className="py-4 bg-gradient-to-r from-brand to-brand-light text-white rounded-xl font-bold shadow-lg hover:shadow-xl active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center space-x-2"
+              className="liquid-glass-button py-4 rounded-xl font-bold disabled:opacity-50 flex items-center justify-center space-x-2"
             >
               <CheckCircle2 className="w-5 h-5" />
               <span>{loading ? '확인 중...' : '정확해요!'}</span>
@@ -353,26 +435,41 @@ export default function OnboardingPage() {
   // Step 5: 완료
   if (step === 5) {
     return (
-      <div className="h-screen bg-gradient-to-b from-primary-50 to-white flex flex-col items-center justify-center p-6">
-        <div className="w-20 h-20 bg-gradient-to-br from-brand to-brand-light rounded-full flex items-center justify-center mb-6 animate-bounce">
-          <Check className="w-10 h-10 text-white" />
+      <div className="h-screen relative flex flex-col items-center justify-center p-6">
+        <div className="absolute inset-0 z-0">
+          <Prism
+            animationType="rotate"
+            suspendWhenOffscreen={true}
+            transparent={true}
+            hueShift={0.3}
+            glow={0.4}
+            bloom={0.6}
+            scale={3.2}
+          />
+          <div className="absolute inset-0 bg-black/40"></div>
         </div>
-        
-        <h1 className="text-3xl font-bold text-gray-900 mb-4 text-center">
-          🎉 모든 준비가 완료되었습니다!
-        </h1>
-        
-        <p className="text-gray-600 text-center mb-8 max-w-md">
-          이제 당신만을 위한 맞춤 브리핑을 생성할 수 있습니다
-        </p>
 
-        <button
-          onClick={handleComplete}
-          className="px-8 py-4 bg-gradient-to-r from-brand to-brand-light text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center space-x-2"
-        >
-          <span>시작하기</span>
-          <ChevronRight className="w-5 h-5" />
-        </button>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-20 h-20 liquid-glass rounded-full flex items-center justify-center mb-6 animate-bounce">
+            <Check className="w-10 h-10 text-white" />
+          </div>
+
+          <h1 className="text-3xl font-bold text-white mb-4 text-center text-over-prism">
+            🎉 모든 준비가 완료되었습니다!
+          </h1>
+
+          <p className="text-white/90 text-center mb-8 max-w-md text-over-prism">
+            이제 당신만을 위한 맞춤 브리핑을 생성할 수 있습니다
+          </p>
+
+          <button
+            onClick={handleComplete}
+            className="liquid-glass-button px-8 py-4 rounded-xl font-bold text-lg flex items-center space-x-2"
+          >
+            <span>시작하기</span>
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
       </div>
     )
   }

@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import React from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Settings, LogOut, Trash2, Loader2, ArrowLeft, RefreshCw, User, Sparkles, MessageSquare, FileText, CheckCircle, XCircle, Mail, Calendar, Youtube, ChevronRight } from 'lucide-react'
+import Prism from '@/components/Prism'
 
 interface UserPersona {
   workStyle: string
@@ -351,87 +353,118 @@ export default function SettingsPage() {
 
   if (status === 'loading') {
     return (
-      <div className="h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-brand" />
+      <div className="h-screen relative flex items-center justify-center">
+        <div className="absolute inset-0 z-0">
+          <Prism
+            animationType="rotate"
+            suspendWhenOffscreen={true}
+            transparent={true}
+            hueShift={0.3}
+            glow={0.4}
+            bloom={0.6}
+            scale={3.2}
+          />
+          <div className="absolute inset-0 bg-black/40"></div>
+        </div>
+        <Loader2 className="w-8 h-8 animate-spin text-white relative z-10" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      {/* 헤더 */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <button
-            onClick={() => router.push('/')}
-            className="flex items-center space-x-2 text-gray-700 hover:text-brand transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium">돌아가기</span>
-          </button>
-          
-          <div className="flex items-center space-x-2">
-            <Settings className="w-5 h-5 text-brand" />
-            <h1 className="text-xl font-bold text-gray-900">설정</h1>
+    <div className="min-h-screen relative">
+      {/* Prism 배경 */}
+      <div className="absolute inset-0 z-0">
+        <Prism
+          animationType="rotate"
+          suspendWhenOffscreen={true}
+          transparent={true}
+          hueShift={0.3}
+          glow={0.8}
+          bloom={0.6}
+          scale={3.2}
+        />
+        <div className="absolute inset-0 bg-black/40"></div>
+      </div>
+
+      {/* Floating 헤더 */}
+      <div className="sticky top-0 z-50 px-6 pt-6 pb-2">
+        <div className="max-w-[480px] mx-auto liquid-glass rounded-[9999px] px-4 py-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 liquid-glass rounded-xl flex items-center justify-center">
+                <Settings className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-white">설정</h1>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => router.push('/')}
+                className="text-white/80 hover:text-white transition-colors text-xs font-medium"
+              >
+                Home
+              </button>
+            </div>
           </div>
-          
-          <div className="w-24"></div>
         </div>
       </div>
 
       {/* 메인 콘텐츠 */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-[480px] mx-auto px-6 py-6 relative z-10">
         {/* 성공/에러 메시지 */}
         {message && (
-          <div className={`mb-6 p-4 border rounded-lg ${
-            message.includes('완료') || message.includes('성공') 
-              ? 'bg-green-50 border-green-200' 
-              : 'bg-red-50 border-red-200'
+          <div className={`mb-6 p-4 rounded-lg liquid-glass-card ${
+            message.includes('완료') || message.includes('성공')
+              ? 'border-green-400/30'
+              : 'border-red-400/30'
           }`}>
             <p className={`text-sm font-medium ${
               message.includes('완료') || message.includes('성공')
-                ? 'text-green-800'
-                : 'text-red-800'
+                ? 'text-green-100'
+                : 'text-red-100'
             }`}>{message}</p>
           </div>
         )}
 
         {/* 페르소나 섹션 */}
-        <div className="app-card p-6 mb-6">
+        <div className="liquid-glass-card p-6 mb-6 rounded-xl">
           <div className="flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-brand to-brand-light rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 liquid-glass rounded-full flex items-center justify-center">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">페르소나</h2>
-              <p className="text-sm text-gray-600">AI가 분석한 당신의 프로필</p>
+              <h2 className="text-xl font-bold text-white">페르소나</h2>
+              <p className="text-sm text-white/70">AI가 분석한 당신의 프로필</p>
             </div>
           </div>
 
           {isLoadingPersona ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-brand" />
+              <Loader2 className="w-8 h-8 animate-spin text-white" />
             </div>
           ) : persona ? (
             <div className="space-y-4 mb-6">
               {/* 업무 스타일 */}
               <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-1">업무 스타일</h3>
-                <p className="text-lg font-semibold text-gray-900">
-                  {persona.workStyle === 'morning-person' ? '아침형 인간 🌅' : 
-                   persona.workStyle === 'night-owl' ? '저녁형 인간 🌙' : 
+                <h3 className="text-sm font-medium text-white/70 mb-1">업무 스타일</h3>
+                <p className="text-lg font-semibold text-white">
+                  {persona.workStyle === 'morning-person' ? '아침형 인간 🌅' :
+                   persona.workStyle === 'night-owl' ? '저녁형 인간 🌙' :
                    '유연한 스타일 ⚡'}
                 </p>
               </div>
 
               {/* 관심사 */}
               <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-2">관심사</h3>
+                <h3 className="text-sm font-medium text-white/70 mb-2">관심사</h3>
                 <div className="flex flex-wrap gap-2">
                   {persona.interests?.map((interest, index) => (
                     <span
                       key={`${interest}-${index}`}
-                      className="px-3 py-1.5 bg-brand/10 text-brand rounded-lg text-sm font-medium"
+                      className="px-3 py-1.5 bg-white/20 text-white rounded-lg text-sm font-medium"
                     >
                       {interest}
                     </span>
@@ -441,8 +474,8 @@ export default function SettingsPage() {
             </div>
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-600 mb-4">페르소나가 생성되지 않았습니다.</p>
-              <p className="text-sm text-gray-500">온보딩을 완료하면 자동으로 생성됩니다.</p>
+              <p className="text-white/90 mb-4">페르소나가 생성되지 않았습니다.</p>
+              <p className="text-sm text-white/70">온보딩을 완료하면 자동으로 생성됩니다.</p>
             </div>
           )}
 
@@ -450,7 +483,7 @@ export default function SettingsPage() {
           <button
             onClick={handleRegeneratePersona}
             disabled={isRegeneratingPersona}
-            className="w-full py-3 bg-gradient-to-r from-brand to-brand-light text-white rounded-xl font-semibold shadow-lg hover:shadow-xl active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+            className="w-full liquid-glass-button py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
           >
             {isRegeneratingPersona ? (
               <>
@@ -467,20 +500,20 @@ export default function SettingsPage() {
         </div>
 
         {/* 서비스 연동 섹션 */}
-        <div className="app-card p-6 mb-6">
+        <div className="liquid-glass-card p-6 mb-6 rounded-xl">
           <div className="flex items-center space-x-3 mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 liquid-glass rounded-full flex items-center justify-center">
               <MessageSquare className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">데이터 소스</h2>
-              <p className="text-sm text-gray-600">브리핑에 사용할 서비스를 선택하세요</p>
+              <h2 className="text-xl font-bold text-white">데이터 소스</h2>
+              <p className="text-sm text-white/70">브리핑에 사용할 서비스를 선택하세요</p>
             </div>
           </div>
 
           {isLoadingServices ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-brand" />
+              <Loader2 className="w-6 h-6 animate-spin text-white" />
             </div>
           ) : (
             <div className="space-y-3">
@@ -491,20 +524,20 @@ export default function SettingsPage() {
                 const isUpdating = updatingServices.has(key)
 
                 return (
-                  <div 
+                  <div
                     key={key}
-                    className={`p-4 border rounded-lg transition-all ${
-                      isEnabled ? 'border-brand bg-brand/5' : 'border-gray-200'
+                    className={`p-4 rounded-lg transition-all ${
+                      isEnabled ? 'liquid-glass-toggle active' : 'liquid-glass'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className={`w-10 h-10 ${config.color} rounded-lg flex items-center justify-center`}>
-                          <Icon className={`w-5 h-5 ${config.iconColor}`} />
+                        <div className={`w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center`}>
+                          <Icon className={`w-5 h-5 text-white`} />
                         </div>
                         <div>
-                          <h3 className="font-semibold text-gray-900">{config.name}</h3>
-                          <p className="text-sm text-gray-600">{config.description}</p>
+                          <h3 className="font-semibold text-white">{config.name}</h3>
+                          <p className="text-sm text-white/70">{config.description}</p>
                         </div>
                       </div>
 
@@ -512,7 +545,7 @@ export default function SettingsPage() {
                         {!isConnected ? (
                           <button
                             onClick={() => handleConnectService(key)}
-                            className="px-4 py-2 bg-brand hover:bg-brand/90 text-white rounded-lg font-medium flex items-center space-x-2 transition-colors"
+                            className="liquid-glass-button px-4 py-2 rounded-lg font-medium flex items-center space-x-2"
                           >
                             <span>연결하기</span>
                             <ChevronRight className="w-4 h-4" />
@@ -528,10 +561,10 @@ export default function SettingsPage() {
                                 onChange={(e) => !isUpdating && handleToggleService(key, e.target.checked)}
                                 disabled={isUpdating}
                               />
-                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand"></div>
+                              <div className="w-11 h-6 bg-white/20 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-white/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-white/30 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-white/40"></div>
                             </label>
                             {isUpdating && (
-                              <Loader2 className="w-4 h-4 animate-spin text-brand" />
+                              <Loader2 className="w-4 h-4 animate-spin text-white" />
                             )}
                           </>
                         )}
@@ -542,22 +575,22 @@ export default function SettingsPage() {
               })}
 
               {/* Notion 섹션 - 특별 렌더링 */}
-              <div className="border-t pt-3 mt-3">
+              <div className="border-t border-white/20 pt-3 mt-3">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 ${SERVICE_CONFIG.notion.color} rounded-lg flex items-center justify-center`}>
-                      <FileText className={`w-5 h-5 ${SERVICE_CONFIG.notion.iconColor}`} />
+                    <div className={`w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center`}>
+                      <FileText className={`w-5 h-5 text-white`} />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">Notion</h3>
-                      <p className="text-sm text-gray-600">워크스페이스별 최근 업데이트</p>
+                      <h3 className="font-semibold text-white">Notion</h3>
+                      <p className="text-sm text-white/70">워크스페이스별 최근 업데이트</p>
                     </div>
                   </div>
 
                   {getNotionWorkspaces().length === 0 && (
                     <button
                       onClick={() => handleConnectService('notion')}
-                      className="px-4 py-2 bg-brand hover:bg-brand/90 text-white rounded-lg font-medium flex items-center space-x-2 transition-colors"
+                      className="liquid-glass-button px-4 py-2 rounded-lg font-medium flex items-center space-x-2"
                     >
                       <span>연결하기</span>
                       <ChevronRight className="w-4 h-4" />
@@ -576,16 +609,16 @@ export default function SettingsPage() {
                       return (
                         <div
                           key={workspace.id}
-                          className={`p-3 border rounded-lg transition-all ${
-                            isEnabled ? 'border-brand bg-brand/5' : 'border-gray-200'
+                          className={`p-3 rounded-lg transition-all ${
+                            isEnabled ? 'liquid-glass-toggle active' : 'liquid-glass'
                           }`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
-                              <p className="font-medium text-gray-900">
+                              <p className="font-medium text-white">
                                 {metadata?.workspaceName || 'Notion Workspace'}
                               </p>
-                              <p className="text-xs text-gray-500">
+                              <p className="text-xs text-white/70">
                                 {metadata?.type === 'oauth' ? 'OAuth 연결' : '토큰 연결'}
                               </p>
                             </div>
@@ -599,10 +632,10 @@ export default function SettingsPage() {
                                   onChange={(e) => !isUpdating && handleToggleService(workspace.serviceName, e.target.checked)}
                                   disabled={isUpdating}
                                 />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand"></div>
+                                <div className="w-11 h-6 bg-white/20 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-white/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-white/30 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-white/40"></div>
                               </label>
                               {isUpdating && (
-                                <Loader2 className="w-4 h-4 animate-spin text-brand" />
+                                <Loader2 className="w-4 h-4 animate-spin text-white" />
                               )}
                             </div>
                           </div>
@@ -613,7 +646,7 @@ export default function SettingsPage() {
                     {/* 워크스페이스 추가 버튼 */}
                     <button
                       onClick={() => setShowAddWorkspaceModal(true)}
-                      className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-brand hover:bg-brand/5 transition-all text-gray-600 hover:text-brand font-medium"
+                      className="w-full p-3 border-2 border-dashed border-white/30 rounded-lg hover:border-white/50 hover:bg-white/10 transition-all text-white/70 hover:text-white font-medium"
                     >
                       + 워크스페이스 추가
                     </button>
@@ -625,23 +658,23 @@ export default function SettingsPage() {
         </div>
 
         {/* 계정 설정 섹션 */}
-        <div className="app-card p-6">
+        <div className="liquid-glass-card p-6 rounded-xl">
           <div className="flex items-center space-x-3 mb-6">
-            <User className="w-6 h-6 text-gray-700" />
-            <h2 className="text-xl font-bold text-gray-900">계정 설정</h2>
+            <User className="w-6 h-6 text-white" />
+            <h2 className="text-xl font-bold text-white">계정 설정</h2>
           </div>
 
           <div className="space-y-3">
             {/* 사용자 정보 */}
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-1">로그인 계정</p>
-              <p className="font-medium text-gray-900">{session?.user?.email}</p>
+            <div className="p-4 liquid-glass rounded-lg">
+              <p className="text-sm text-white/70 mb-1">로그인 계정</p>
+              <p className="font-medium text-white">{session?.user?.email}</p>
             </div>
 
             {/* 로그아웃 버튼 */}
             <button
               onClick={handleLogout}
-              className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold transition-colors flex items-center justify-center space-x-2"
+              className="w-full liquid-glass py-3 rounded-xl font-semibold transition-colors flex items-center justify-center space-x-2"
             >
               <LogOut className="w-5 h-5" />
               <span>로그아웃</span>
@@ -651,7 +684,7 @@ export default function SettingsPage() {
             <button
               onClick={handleDeleteAccount}
               disabled={isDeletingAccount}
-              className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="w-full py-3 bg-red-500/20 hover:bg-red-500/30 text-red-100 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 border border-red-400/30"
             >
               {isDeletingAccount ? (
                 <>
@@ -666,7 +699,7 @@ export default function SettingsPage() {
               )}
             </button>
 
-            <p className="text-xs text-gray-500 text-center mt-2">
+            <p className="text-xs text-white/70 text-center mt-2">
               ⚠️ 계정 삭제 시 모든 데이터가 영구적으로 삭제됩니다
             </p>
           </div>

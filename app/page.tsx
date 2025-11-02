@@ -3,8 +3,10 @@
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { Mic2 } from 'lucide-react'
 import Header from '@/frontend/components/Header'
 import { useOnboarding } from '@/frontend/hooks/useOnboarding'
+import Prism from '@/components/Prism'
 
 type ToneOfVoice = 'default' | 'zephyr' | 'charon'
 
@@ -35,12 +37,22 @@ export default function Home() {
   // 로딩 중 (세션 또는 온보딩 상태)
   if (status === 'loading' || (session && onboardingLoading)) {
     return (
-      <div className="h-screen bg-gray-50 flex flex-col">
-        <div className="flex-shrink-0">
+      <div className="h-screen relative flex flex-col">
+        <div className="absolute inset-0 z-0">
+          <Prism
+            animationType="rotate"
+            suspendWhenOffscreen={true}
+            transparent={true}
+            hueShift={0.3}
+            glow={1.2}
+            scale={3.2}
+          />
+        </div>
+        <div className="flex-shrink-0 relative z-10">
           <Header />
         </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-brand border-t-transparent"></div>
+        <div className="flex-1 flex items-center justify-center relative z-10">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
         </div>
       </div>
     )
@@ -49,12 +61,22 @@ export default function Home() {
   // 온보딩 필요한 사용자는 리다이렉트 되므로 로딩 표시
   if (session && onboardingStatus?.needsOnboarding) {
     return (
-      <div className="h-screen bg-gray-50 flex flex-col">
-        <div className="flex-shrink-0">
+      <div className="h-screen relative flex flex-col">
+        <div className="absolute inset-0 z-0">
+          <Prism
+            animationType="rotate"
+            suspendWhenOffscreen={true}
+            transparent={true}
+            hueShift={0.3}
+            glow={1.2}
+            scale={3.2}
+          />
+        </div>
+        <div className="flex-shrink-0 relative z-10">
           <Header />
         </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-brand border-t-transparent"></div>
+        <div className="flex-1 flex items-center justify-center relative z-10">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
         </div>
       </div>
     )
@@ -66,76 +88,115 @@ export default function Home() {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
-      {/* 상단 고정 헤더 */}
-      <div className="flex-shrink-0">
-        <Header />
+    <div className="h-screen relative flex flex-col overflow-hidden">
+      {/* Prism 배경 */}
+      <div className="absolute inset-0 z-0">
+        <Prism
+          animationType="rotate"
+          suspendWhenOffscreen={true}
+          transparent={true}
+          hueShift={0.3}
+          glow={1.2}
+          scale={3.2}
+        />
       </div>
-      
-      {/* 메인 콘텐츠 */}
-      <main className="flex-1 overflow-y-auto flex items-center justify-center">
-        <div className="text-center space-y-8 max-w-2xl px-4">
-          {/* 말투 선택 UI */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">
-              브리핑 말투 선택
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button
-                onClick={() => setSelectedTone('default')}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  selectedTone === 'default'
-                    ? 'border-brand bg-brand/10 shadow-md'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className="font-medium text-gray-900 mb-1">기본 말투</div>
-                <div className="text-sm text-gray-600">친근하고 전문적인 톤</div>
+
+      {/* Floating 헤더 */}
+      <div className="relative z-10 px-6 pt-6">
+        <div className="max-w-[480px] mx-auto liquid-glass rounded-[9999px] px-4 py-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 liquid-glass rounded-xl flex items-center justify-center">
+                <Mic2 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-white">Ownbrief</h1>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              <button className="text-white/80 hover:text-white transition-colors text-xs font-medium">
+                Home
               </button>
-              
               <button
-                onClick={() => setSelectedTone('zephyr')}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  selectedTone === 'zephyr'
-                    ? 'border-brand bg-brand/10 shadow-md'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
+                onClick={() => router.push('/settings')}
+                className="text-white/80 hover:text-white transition-colors text-xs font-medium"
               >
-                <div className="font-medium text-gray-900 mb-1">Zephyr</div>
-                <div className="text-sm text-gray-600">여자친구 같은 따뜻한 말투</div>
-              </button>
-              
-              <button
-                onClick={() => setSelectedTone('charon')}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  selectedTone === 'charon'
-                    ? 'border-brand bg-brand/10 shadow-md'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className="font-medium text-gray-900 mb-1">Charon</div>
-                <div className="text-sm text-gray-600">친구같고 시니컬한 말투</div>
+                Settings
               </button>
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="flex flex-col items-center space-y-6">
+      {/* 메인 콘텐츠 */}
+      <main className="flex-1 flex items-center justify-center relative z-10 px-6 pb-6">
+        <div className="w-full max-w-[480px] mx-auto text-center space-y-8">
+          {/* 메인 타이틀 */}
+          <div className="space-y-4">
+            <h1 className="text-3xl font-bold text-white leading-tight text-over-prism">
+              당신만을 위한
+              <br />
+              맞춤 브리핑
+            </h1>
+            <p className="text-base text-white/80 mx-auto text-over-prism">
+              AI가 분석한 당신의 일정, 메일, 트렌드를 음성으로 전달합니다
+            </p>
+          </div>
+
+          {/* CTA 버튼 */}
+          <div className="flex items-center justify-center gap-3">
             <button
               onClick={() => router.push(`/briefing-player?tone=${selectedTone}`)}
-              className="w-32 h-32 rounded-full bg-gradient-to-r from-brand to-brand-light shadow-2xl hover:shadow-3xl active:scale-95 transition-all duration-200 flex items-center justify-center group"
+              className="liquid-glass-button px-6 py-3 rounded-full text-base font-semibold text-white flex items-center justify-center gap-2 transition-transform"
             >
-              <svg className="w-16 h-16 text-white ml-2 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
+              브리핑 시작하기
             </button>
-            
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold text-gray-900">
-                오늘의 브리핑
-              </h2>
-              <p className="text-gray-600">
-                재생 버튼을 눌러 맞춤 브리핑을 시작하세요
-              </p>
+            <button
+              onClick={() => router.push('/settings')}
+              className="liquid-glass px-4 py-3 rounded-full text-base font-semibold text-white transition-transform"
+            >
+              설정
+            </button>
+          </div>
+
+          {/* 말투 선택 */}
+          <div className="pt-4">
+            <p className="text-xs text-white/60 mb-3">브리핑 스타일 선택</p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                onClick={() => setSelectedTone('default')}
+                className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
+                  selectedTone === 'default'
+                    ? 'liquid-glass-toggle active'
+                    : 'liquid-glass text-white/70'
+                }`}
+              >
+                기본
+              </button>
+              <button
+                onClick={() => setSelectedTone('zephyr')}
+                className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
+                  selectedTone === 'zephyr'
+                    ? 'liquid-glass-toggle active'
+                    : 'liquid-glass text-white/70'
+                }`}
+              >
+                Zephyr
+              </button>
+              <button
+                onClick={() => setSelectedTone('charon')}
+                className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
+                  selectedTone === 'charon'
+                    ? 'liquid-glass-toggle active'
+                    : 'liquid-glass text-white/70'
+                }`}
+              >
+                Charon
+              </button>
             </div>
           </div>
         </div>

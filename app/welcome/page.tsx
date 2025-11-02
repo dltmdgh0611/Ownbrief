@@ -4,6 +4,7 @@ import { useSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Mic2 } from 'lucide-react';
+import Prism from '@/components/Prism';
 
 export default function WelcomePage() {
   const { data: session, status } = useSession();
@@ -18,8 +19,21 @@ export default function WelcomePage() {
 
   if (status === 'loading') {
     return (
-      <div className="h-screen bg-gradient-to-b from-primary-50 to-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-brand border-t-transparent"></div>
+      <div className="h-screen relative flex items-center justify-center">
+        {/* Prism 배경 */}
+        <div className="absolute inset-0 z-0">
+          <Prism
+            animationType="rotate"
+            suspendWhenOffscreen={true}
+            transparent={true}
+            hueShift={0.3}
+            glow={0.4}
+            bloom={0.6}
+            scale={3.2}
+          />
+          <div className="absolute inset-0 bg-black/40"></div>
+        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent relative z-10"></div>
       </div>
     );
   }
@@ -29,26 +43,39 @@ export default function WelcomePage() {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-b from-primary-50 to-white flex items-center justify-center px-4 overflow-y-auto">
-      <div className="text-center fade-in py-8">
+    <div className="h-screen relative flex items-center justify-center px-4 overflow-y-auto">
+      {/* Prism 배경 */}
+      <div className="absolute inset-0 z-0">
+        <Prism
+          animationType="rotate"
+          suspendWhenOffscreen={true}
+          transparent={true}
+          hueShift={0.3}
+          glow={1.2}
+          scale={3.2}
+        />
+      </div>
+
+      {/* 콘텐츠 */}
+      <div className="text-center fade-in py-8 relative z-10">
         {/* 로고 */}
         <div className="w-28 h-28 bg-gradient-to-br from-brand to-brand-light rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl">
           <Mic2 className="w-14 h-14 text-white" />
         </div>
         
         {/* 환영 메시지 */}
-        <h1 className="text-5xl font-bold text-gray-900 mb-4">
+        <h1 className="text-5xl font-bold text-white mb-4 text-over-prism">
           환영합니다
         </h1>
-        
-        <h2 className="text-3xl font-bold text-brand mb-12">
+
+        <h2 className="text-3xl font-bold text-white mb-12 text-over-prism">
           Ownbrief
         </h2>
 
-        {/* Google 로그인 버튼 */}
+        {/* Google 로그인 버튼 - 리퀴드 글래스 스타일 */}
         <button
           onClick={() => signIn('google', { callbackUrl: '/' })}
-          className="bg-white text-gray-700 font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 app-button flex items-center justify-center space-x-3 border-2 border-gray-200 hover:border-gray-300 mx-auto"
+          className="liquid-glass-button py-4 px-8 rounded-xl flex items-center justify-center space-x-3 mx-auto"
         >
           <svg className="w-6 h-6" viewBox="0 0 24 24">
             <path
