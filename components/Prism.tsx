@@ -351,6 +351,11 @@ const Prism: React.FC<PrismProps> = ({
       const time = (t - t0) * 0.001;
       program.uniforms.iTime.value = time;
 
+      // 색상을 시간에 따라 천천히 변화 (1분 = 60초에 한 번 전체 회전)
+      // 60초에 2π 라디안 변화: (time / 60) * 2π
+      const timeBasedHueShift = (time / 60) * (2 * Math.PI);
+      program.uniforms.uHueShift.value = HUE + timeBasedHueShift;
+
       let continueRAF = true;
 
       if (animationType === 'hover') {
