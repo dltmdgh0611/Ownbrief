@@ -21,7 +21,7 @@ export default function WelcomePage() {
     return (
       <div className="h-screen relative flex items-center justify-center">
         {/* Prism 배경 */}
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 prism-background-container">
           <Prism
             animationType="rotate"
             suspendWhenOffscreen={true}
@@ -45,7 +45,7 @@ export default function WelcomePage() {
   return (
     <div className="h-screen relative flex items-center justify-center px-4 overflow-y-auto">
       {/* Prism 배경 */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 prism-background-container">
         <Prism
           animationType="rotate"
           suspendWhenOffscreen={true}

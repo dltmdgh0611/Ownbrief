@@ -90,7 +90,7 @@ export default function Home() {
   return (
     <div className="h-screen relative flex flex-col overflow-hidden">
       {/* Prism 배경 */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 prism-background-container">
         <Prism
           animationType="rotate"
           suspendWhenOffscreen={true}

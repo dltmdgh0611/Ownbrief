@@ -131,7 +131,7 @@ export default function OnboardingPage() {
   if (status === 'loading') {
     return (
       <div className="h-screen relative flex items-center justify-center">
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 prism-background-container">
           <Prism
             animationType="rotate"
             suspendWhenOffscreen={true}
@@ -152,7 +152,7 @@ export default function OnboardingPage() {
   if (step === 1) {
     return (
       <div className="h-screen relative flex flex-col items-center justify-center p-6">
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 prism-background-container">
           <Prism
             animationType="rotate"
             suspendWhenOffscreen={true}
@@ -192,7 +192,7 @@ export default function OnboardingPage() {
   if (step === 2) {
     return (
       <div className="h-screen relative flex flex-col items-center justify-center p-6">
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 prism-background-container">
           <Prism
             animationType="rotate"
             suspendWhenOffscreen={true}
@@ -243,7 +243,7 @@ export default function OnboardingPage() {
   if (step === 3) {
     return (
       <div className="h-screen relative flex flex-col items-center justify-center p-6">
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 prism-background-container">
           <Prism
             animationType="rotate"
             suspendWhenOffscreen={true}
@@ -358,7 +358,7 @@ export default function OnboardingPage() {
 
     return (
       <div className="h-screen relative overflow-y-auto p-6">
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 prism-background-container">
           <Prism
             animationType="rotate"
             suspendWhenOffscreen={true}
@@ -436,7 +436,7 @@ export default function OnboardingPage() {
   if (step === 5) {
     return (
       <div className="h-screen relative flex flex-col items-center justify-center p-6">
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 prism-background-container">
           <Prism
             animationType="rotate"
             suspendWhenOffscreen={true}

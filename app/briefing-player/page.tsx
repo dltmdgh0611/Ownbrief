@@ -843,7 +843,7 @@ ${dateStr} 브리핑을 시작하겠습니다.`
   return (
     <div className="h-screen relative flex flex-col text-white overflow-hidden" style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif' }}>
       {/* Prism 배경 */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 prism-background-container">
         <Prism
           animationType="rotate"
           suspendWhenOffscreen={true}
@@ -852,7 +852,6 @@ ${dateStr} 브리핑을 시작하겠습니다.`
           glow={1.2}
           scale={3.5}
         />
-        <div className="absolute inset-0 bg-black/40"></div>
       </div>
       {/* 상단 헤더 */}
       <div className="flex-shrink-0 px-6 py-3 border-b border-white/10 relative z-10">

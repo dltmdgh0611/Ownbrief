@@ -374,7 +374,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen relative">
       {/* Prism 배경 */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 prism-background-container">
         <Prism
           animationType="rotate"
           suspendWhenOffscreen={true}

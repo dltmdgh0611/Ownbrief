@@ -187,6 +187,19 @@ body {
   }
 }
 
+/* 모바일에서 배경 밝기 줄이기 */
+@media (max-width: 768px) {
+  /* Prism 배경 영역에 어두운 오버레이 추가 */
+  .prism-background-container::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 0%;
