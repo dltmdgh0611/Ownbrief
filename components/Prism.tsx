@@ -351,10 +351,15 @@ const Prism: React.FC<PrismProps> = ({
       const time = (t - t0) * 0.001;
       program.uniforms.iTime.value = time;
 
-      // 색상을 시간에 따라 천천히 변화 (1분 = 60초에 한 번 전체 회전)
-      // 60초에 2π 라디안 변화: (time / 60) * 2π
-      const timeBasedHueShift = (time / 60) * (2 * Math.PI);
-      program.uniforms.uHueShift.value = HUE + timeBasedHueShift;
+      // hueShift: -1 ~ 1 사이를 30초 주기로 왔다갔다
+      // sin 파형 사용: sin((time / 30) * 2π) = -1 ~ 1
+      const hueShiftCycle = Math.sin((time / 30) * (2 * Math.PI));
+      program.uniforms.uHueShift.value = HUE + hueShiftCycle;
+
+      // colorFrequency: 0 ~ 4 사이를 60초 주기로 왔다갔다
+      // sin 파형을 0~1로 변환 후 0~4로 스케일: (sin(...) + 1) / 2 * 4
+      const colorFreqCycle = (Math.sin((time / 60) * (2 * Math.PI)) + 1) / 2 * 4;
+      program.uniforms.uColorFreq.value = colorFreqCycle;
 
       let continueRAF = true;
 
