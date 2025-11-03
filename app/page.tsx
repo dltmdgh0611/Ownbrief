@@ -7,6 +7,8 @@ import { Mic2 } from 'lucide-react'
 import Header from '@/frontend/components/Header'
 import { useOnboarding } from '@/frontend/hooks/useOnboarding'
 import Prism from '@/components/Prism'
+import PreRegisterBanner from '@/frontend/components/PreRegisterBanner'
+import PreRegisterModal from '@/frontend/components/PreRegisterModal'
 
 type ToneOfVoice = 'default' | 'zephyr' | 'charon'
 
@@ -15,6 +17,8 @@ export default function Home() {
   const router = useRouter()
   const { status: onboardingStatus, loading: onboardingLoading } = useOnboarding()
   const [selectedTone, setSelectedTone] = useState<ToneOfVoice>('default')
+  const [showPreRegisterModal, setShowPreRegisterModal] = useState(false)
+  const [isPreRegistered, setIsPreRegistered] = useState(false)
 
   // 로그인 안 된 사용자는 welcome 페이지로
   useEffect(() => {
@@ -33,6 +37,40 @@ export default function Home() {
       console.log('✅ 온보딩 완료 - 홈 화면 표시');
     }
   }, [session, onboardingLoading, onboardingStatus, router])
+
+  // 사전등록 상태 확인
+  useEffect(() => {
+    if (session) {
+      fetch('/api/user/pre-register')
+        .then(res => res.json())
+        .then(data => {
+          setIsPreRegistered(data.preRegistered || false)
+        })
+        .catch(err => console.error('사전등록 상태 확인 실패:', err))
+    }
+  }, [session])
+
+  const handlePreRegister = async () => {
+    try {
+      const response = await fetch('/api/user/pre-register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('사전등록 실패')
+      }
+
+      const data = await response.json()
+      setIsPreRegistered(true)
+      console.log('✅ 사전등록 완료:', data)
+    } catch (error) {
+      console.error('❌ 사전등록 에러:', error)
+      throw error
+    }
+  }
 
   // 로딩 중 (세션 또는 온보딩 상태)
   if (status === 'loading' || (session && onboardingLoading)) {
@@ -129,6 +167,13 @@ export default function Home() {
         </div>
       </div>
 
+      {/* 사전등록 배너 - 아직 등록하지 않은 사용자에게만 표시 */}
+      {!isPreRegistered && (
+        <div className="relative z-10 mt-4">
+          <PreRegisterBanner onClick={() => setShowPreRegisterModal(true)} />
+        </div>
+      )}
+
       {/* 메인 콘텐츠 */}
       <main className="flex-1 flex items-center justify-center relative z-10 px-6 pb-6">
         <div className="w-full max-w-[480px] mx-auto text-center space-y-8">
@@ -201,6 +246,13 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {/* 사전등록 모달 */}
+      <PreRegisterModal
+        isOpen={showPreRegisterModal}
+        onClose={() => setShowPreRegisterModal(false)}
+        onRegister={handlePreRegister}
+      />
     </div>
   )
 }

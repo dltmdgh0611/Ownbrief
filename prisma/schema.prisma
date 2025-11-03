@@ -38,21 +38,21 @@ model Session {
 }
 
 model User {
-  id                String              @id @default(cuid())
-  name              String?
-  email             String?             @unique
-  emailVerified     DateTime?
-  image             String?
-  accounts          Account[]
-  sessions          Session[]
-  podcasts          Podcast[]
-  briefings         Briefing[]
-  userSettings      UserSettings?
-  userPersona       UserPersona?
-  connectedServices ConnectedService[]
+  id                 String               @id @default(cuid())
+  name               String?
+  email              String?              @unique
+  emailVerified      DateTime?
+  image              String?
+  accounts           Account[]
+  sessions           Session[]
+  podcasts           Podcast[]
+  briefings          Briefing[]
+  userSettings       UserSettings?
+  userPersona        UserPersona?
+  connectedServices  ConnectedService[]
   dailyTrendKeywords DailyTrendKeywords[]
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 }
 
 model VerificationToken {
@@ -68,7 +68,7 @@ model Podcast {
   title           String
   description     String?
   audioUrl        String?
-  duration        Int?      // duration in seconds
+  duration        Int? // duration in seconds
   status          String    @default("pending") // pending, processing, completed, failed
   script          String
   userId          String
@@ -80,16 +80,18 @@ model Podcast {
 }
 
 model UserSettings {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  credits       Int      @default(15) // 남은 크레딧 수
-  isAdmin       Boolean  @default(false) // 관리자 권한
-  referralCode  String?  @unique // 사용자 고유 추천인 코드 (8자 영숫자)
-  referredBy    String?  // 추천인 코드 (누가 이 사용자를 초대했는지)
-  referralCount Int      @default(0) // 추천한 사람 수
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credits         Int       @default(15) // 남은 크레딧 수
+  isAdmin         Boolean   @default(false) // 관리자 권한
+  referralCode    String?   @unique // 사용자 고유 추천인 코드 (8자 영숫자)
+  referredBy      String? // 추천인 코드 (누가 이 사용자를 초대했는지)
+  referralCount   Int       @default(0) // 추천한 사람 수
+  preRegistered   Boolean   @default(false) // 유료 플랜 사전등록 여부
+  preRegisteredAt DateTime? // 사전등록 시간
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model UserPersona {
@@ -137,12 +139,12 @@ model Briefing {
 }
 
 model DailyTrendKeywords {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  keywords    Json     // 3개의 키워드 (level1, level2, level3)
-  createdAt   DateTime @default(now())
-  expiresAt   DateTime // 만료 시간 (생성일 + 1일)
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  keywords  Json // 3개의 키워드 (level1, level2, level3)
+  createdAt DateTime @default(now())
+  expiresAt DateTime // 만료 시간 (생성일 + 1일)
 
   @@unique([userId, createdAt])
   @@index([userId, expiresAt])
