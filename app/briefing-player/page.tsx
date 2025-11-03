@@ -384,6 +384,58 @@ export default function BriefingPlayerPage() {
     }
   }, [isStopped, generateTTS, sections, toneOfVoice])
 
+  // Interlude 페이드아웃
+  const fadeOutInterlude = useCallback(() => {
+    if (interludeAudioRef.current) {
+      const audio = interludeAudioRef.current
+      console.log(`🎵 Interlude 페이드아웃 시작 - 현재 볼륨: ${audio.volume}`)
+      
+      // 기존 interval 정리
+      if ((audio as any).__fadeOutInterval) {
+        clearInterval((audio as any).__fadeOutInterval)
+      }
+      
+      const fadeOutInterval = setInterval(() => {
+        if (audio.volume > 0.01) {
+          audio.volume -= 0.01
+        } else {
+          audio.pause()
+          clearInterval(fadeOutInterval)
+          delete (audio as any).__fadeOutInterval
+          console.log('🎵 Interlude 페이드아웃 완료')
+        }
+      }, 50)
+      ;(audio as any).__fadeOutInterval = fadeOutInterval
+    }
+  }, [])
+
+  // Interlude 페이드인
+  const fadeInInterlude = useCallback(() => {
+    if (interludeAudioRef.current) {
+      const audio = interludeAudioRef.current
+      console.log(`🎵 Interlude 페이드인 시작 - 현재 볼륨: ${audio.volume}`)
+      
+      // 기존 interval 정리
+      if ((audio as any).__fadeInInterval) {
+        clearInterval((audio as any).__fadeInInterval)
+      }
+      
+      audio.volume = 0
+      audio.play()
+      
+      const fadeInInterval = setInterval(() => {
+        if (audio.volume < 0.3) {
+          audio.volume += 0.01
+        } else {
+          clearInterval(fadeInInterval)
+          delete (audio as any).__fadeInInterval
+          console.log('🎵 Interlude 페이드인 완료')
+        }
+      }, 50)
+      ;(audio as any).__fadeInInterval = fadeInInterval
+    }
+  }, [])
+
   // 음성 재생 종료 핸들러
   const handleAudioEnd = useCallback(async () => {
     if (isStopped) return
@@ -397,24 +449,30 @@ export default function BriefingPlayerPage() {
     if (nextIndex >= sections.length) {
       console.log('🎯 모든 섹션 재생 완료')
       
-      // DB에 브리핑 저장
-      if (sectionData.length > 0) {
-        try {
-          const response = await fetch('/api/briefing/save', {
+      // DB에 브리핑 저장 - 최신 sectionData를 가져오기 위해 setState의 함수형 업데이트 사용
+      setSectionData(currentSectionData => {
+        if (currentSectionData.length > 0) {
+          fetch('/api/briefing/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sectionData })
+            body: JSON.stringify({ sectionData: currentSectionData })
           })
-          
-          if (response.ok) {
-            const data = await response.json()
-            setBriefingId(data.briefingId)
-            console.log(`✅ 브리핑 저장 완료: ${data.briefingId}`)
-          }
-        } catch (error) {
-          console.error('브리핑 저장 오류:', error)
+            .then(response => {
+              if (response.ok) {
+                return response.json()
+              }
+              throw new Error('저장 실패')
+            })
+            .then(data => {
+              setBriefingId(data.briefingId)
+              console.log(`✅ 브리핑 저장 완료: ${data.briefingId}`)
+            })
+            .catch(error => {
+              console.error('브리핑 저장 오류:', error)
+            })
         }
-      }
+        return currentSectionData
+      })
       
       setIsGenerating(false)
       setIsPlaying(false)
@@ -473,7 +531,7 @@ export default function BriefingPlayerPage() {
     } else {
       console.warn(`⚠️ pendingNext 불일치 또는 없음! nextIndex: ${nextIndex}, pendingNext: ${pendingNextRef.current ? pendingNextRef.current.index : 'null'}`)
     }
-  }, [isStopped, sections, sectionData])
+  }, [isStopped, sections, fadeOutInterlude, fadeInInterlude])
 
   // 음성 재생 시작 핸들러
   const handleAudioStart = useCallback(async () => {
@@ -493,44 +551,7 @@ export default function BriefingPlayerPage() {
     }
     
     isVoicePlayingRef.current = true
-  }, [isStopped, prepareNextSection, sections])
-
-
-  // Interlude 페이드아웃
-  const fadeOutInterlude = () => {
-    if (interludeAudioRef.current) {
-      const audio = interludeAudioRef.current
-      console.log(`🎵 Interlude 페이드아웃 시작 - 현재 볼륨: ${audio.volume}`)
-      const fadeOutInterval = setInterval(() => {
-        if (audio.volume > 0.01) {
-          audio.volume -= 0.01
-        } else {
-          audio.pause()
-          clearInterval(fadeOutInterval)
-          console.log('🎵 Interlude 페이드아웃 완료')
-        }
-      }, 50)
-    }
-  }
-
-  // Interlude 페이드인
-  const fadeInInterlude = () => {
-    if (interludeAudioRef.current) {
-      const audio = interludeAudioRef.current
-      console.log(`🎵 Interlude 페이드인 시작 - 현재 볼륨: ${audio.volume}`)
-      audio.volume = 0
-      audio.play()
-      
-      const fadeInInterval = setInterval(() => {
-        if (audio.volume < 0.3) {
-          audio.volume += 0.01
-        } else {
-          clearInterval(fadeInInterval)
-          console.log('🎵 Interlude 페이드인 완료')
-        }
-      }, 50)
-    }
-  }
+  }, [isStopped, prepareNextSection, sections, fadeOutInterlude])
 
   // Interlude 재생
   const playInterlude = useCallback(async () => {
