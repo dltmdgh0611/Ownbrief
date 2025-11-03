@@ -248,13 +248,14 @@ export class YouTubeClient {
   }
 
   /**
-   * Access Token 조회
+   * Access Token 조회 및 자동 갱신
    */
   private static async getAccessToken(userEmail: string): Promise<string | null> {
     try {
       const user = await prisma.user.findUnique({
         where: { email: userEmail },
         include: {
+          connectedServices: true,
           accounts: true,
         },
       })
@@ -263,10 +264,81 @@ export class YouTubeClient {
         return null
       }
 
+      // 먼저 ConnectedService에서 YouTube 토큰 찾기
+      const youtubeService = user.connectedServices.find(s => s.serviceName === 'youtube')
+      if (youtubeService?.accessToken && youtubeService.refreshToken) {
+        // 토큰 만료 확인
+        if (youtubeService.expiresAt && youtubeService.expiresAt > new Date()) {
+          return youtubeService.accessToken
+        }
+
+        // 토큰이 만료되었으면 갱신
+        console.log('🔄 YouTube: Refreshing expired access token...')
+        try {
+          const refreshedToken = await this.refreshAccessToken(youtubeService.refreshToken)
+          
+          // ConnectedService 업데이트
+          await prisma.connectedService.update({
+            where: { id: youtubeService.id },
+            data: {
+              accessToken: refreshedToken.access_token,
+              expiresAt: new Date(Date.now() + refreshedToken.expires_in * 1000),
+              refreshToken: refreshedToken.refresh_token || youtubeService.refreshToken,
+            },
+          })
+          
+          console.log('✅ YouTube: Access token refreshed successfully')
+          return refreshedToken.access_token
+        } catch (error) {
+          console.error('❌ YouTube: Failed to refresh access token:', error)
+          return null
+        }
+      }
+
       // Account 테이블에서 Google OAuth 토큰 찾기
       const googleAccount = user.accounts.find(a => a.provider === 'google')
       if (googleAccount?.access_token) {
-        return googleAccount.access_token
+        // 토큰 만료 확인
+        const now = Math.floor(Date.now() / 1000)
+        if (googleAccount.expires_at && googleAccount.expires_at > now) {
+          return googleAccount.access_token
+        }
+
+        // 토큰이 만료되었고 refresh_token이 있으면 갱신
+        if (googleAccount.refresh_token) {
+          console.log('🔄 YouTube: Refreshing expired access token from Account...')
+          try {
+            const refreshedToken = await this.refreshAccessToken(googleAccount.refresh_token)
+            
+            // DB 업데이트
+            await prisma.account.update({
+              where: { id: googleAccount.id },
+              data: {
+                access_token: refreshedToken.access_token,
+                expires_at: Math.floor(Date.now() / 1000) + refreshedToken.expires_in,
+                refresh_token: refreshedToken.refresh_token || googleAccount.refresh_token,
+              },
+            })
+            
+            // ConnectedService도 업데이트
+            if (youtubeService) {
+              await prisma.connectedService.update({
+                where: { id: youtubeService.id },
+                data: {
+                  accessToken: refreshedToken.access_token,
+                  expiresAt: new Date(Date.now() + refreshedToken.expires_in * 1000),
+                  refreshToken: refreshedToken.refresh_token || googleAccount.refresh_token,
+                },
+              })
+            }
+            
+            console.log('✅ YouTube: Access token refreshed successfully')
+            return refreshedToken.access_token
+          } catch (error) {
+            console.error('❌ YouTube: Failed to refresh access token:', error)
+            return null
+          }
+        }
       }
 
       return null
@@ -274,5 +346,34 @@ export class YouTubeClient {
       console.error('Error getting access token:', error)
       return null
     }
+  }
+
+  /**
+   * Access Token 갱신
+   */
+  private static async refreshAccessToken(refreshToken: string): Promise<{
+    access_token: string
+    expires_in: number
+    refresh_token?: string
+  }> {
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to refresh token')
+    }
+
+    return await response.json()
   }
 }
