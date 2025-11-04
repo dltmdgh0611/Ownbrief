@@ -373,7 +373,6 @@ export class BriefingService {
       }
 
       // 키워드만 추출 (뉴스/스크립트는 브리핑 시에만 생성)
-<<<<<<< Updated upstream
       // extractKeywordsOnly는 실패해도 빈 배열을 반환하므로 안전
       let keywords: Array<{ level1: string, level2: string, level3: string }> = []
       try {
@@ -381,56 +380,40 @@ export class BriefingService {
         keywords = await this.extractKeywordsOnly(userEmail)
         console.log(`📊 [키워드 생성] 키워드 추출 완료: ${keywords.length}개`)
       } catch (error: any) {
-        console.error(`❌ [키워드 생성] 키워드 추출 오류 (빈 배열로 저장): userEmail=${userEmail}`)
+        console.error(`❌ [키워드 생성] 키워드 추출 오류: userEmail=${userEmail}`)
         console.error(`   오류 타입: ${error.constructor.name}`)
         console.error(`   오류 메시지: ${error.message}`)
         console.error(`   오류 스택:`, error.stack)
         keywords = []
-=======
-      const keywords = await this.extractKeywordsOnly(userEmail)
+      }
       
       // 빈 키워드 필터링 (level1, level2, level3가 모두 비어있지 않은 것만)
       const validKeywords = keywords.filter(k => 
-        k.level1 && k.level1.trim() !== '' &&
+        k && k.level1 && k.level1.trim() !== '' &&
         k.level2 && k.level2.trim() !== '' &&
         k.level3 && k.level3.trim() !== ''
       )
       
       if (validKeywords.length === 0) {
-        console.log('⚠️ 유효한 키워드가 없음 - 저장하지 않음')
+        console.log(`⚠️ [키워드 생성] 유효한 키워드가 없음 - 저장하지 않음: userEmail=${userEmail}`)
         return
->>>>>>> Stashed changes
       }
       
-      // 키워드가 없어도 빈 배열로 저장하여 다음 단계에서 처리할 수 있도록 함
+      // DB에 저장
       const expiresAt = new Date(today.getTime() + 24 * 60 * 60 * 1000)
-      console.log(`💾 [키워드 생성] DB 저장 시작: 키워드 ${keywords.length}개, 만료 시간=${expiresAt.toISOString()}`)
+      console.log(`💾 [키워드 생성] DB 저장 시작: 키워드 ${validKeywords.length}개, 만료 시간=${expiresAt.toISOString()}`)
 
-<<<<<<< Updated upstream
       try {
         await prisma.dailyTrendKeywords.create({
           data: {
             userId: user.id,
-            keywords: keywords as any,
+            keywords: validKeywords as any,
             createdAt: today,
             expiresAt: expiresAt
           }
         })
 
-        if (keywords.length === 0) {
-          console.error(`⚠️ [키워드 생성] 키워드 추출 실패 - 빈 배열로 저장됨: userEmail=${userEmail}`)
-          console.error(`   → 사용자가 유튜브에 영상을 저장했는지 확인하세요.`)
-        } else {
-          console.log(`✅ [키워드 생성] 키워드 생성 및 저장 완료: ${keywords.length}개`)
-=======
-      await prisma.dailyTrendKeywords.create({
-        data: {
-          userId: user.id,
-          keywords: validKeywords as any,
-          createdAt: today,
-          expiresAt: expiresAt
->>>>>>> Stashed changes
-        }
+        console.log(`✅ [키워드 생성] 키워드 생성 및 저장 완료: ${validKeywords.length}개`)
       } catch (dbError: any) {
         // DB 저장 오류는 로그만 남기고 에러를 던지지 않음 (이미 생성된 경우 등)
         console.error(`❌ [키워드 생성] 키워드 DB 저장 오류: userEmail=${userEmail}`)
@@ -500,18 +483,24 @@ export class BriefingService {
       const videoData = recentVideos.map(v => ({ title: v.title, description: v.description }))
       const keywords = await extractDeepKeywords(videoData, personaInterests)
 
-<<<<<<< Updated upstream
-      console.log(`✅ [키워드 추출] 완료: ${keywords.length}개 트렌드 키워드 추출됨`)
-      if (keywords.length > 0) {
-        keywords.forEach((keyword, idx) => {
+      // 빈 키워드 필터링
+      const validKeywords = keywords.filter(k => 
+        k && k.level1 && k.level1.trim() !== '' &&
+        k.level2 && k.level2.trim() !== '' &&
+        k.level3 && k.level3.trim() !== ''
+      )
+
+      console.log(`✅ [키워드 추출] 완료: ${validKeywords.length}개 유효한 트렌드 키워드 추출됨 (전체: ${keywords.length}개)`)
+      if (validKeywords.length > 0) {
+        validKeywords.forEach((keyword, idx) => {
           console.log(`  🔑 [키워드 추출] 키워드 ${idx + 1}: ${keyword.level1} > ${keyword.level2} > ${keyword.level3}`)
         })
       } else {
-        console.error(`❌ [키워드 추출] 추출된 키워드가 0개: userEmail=${userEmail}`)
-        console.error(`   → YouTube 영상은 ${recentVideos.length}개 수집되었지만 키워드 추출에 실패했습니다.`)
+        console.error(`❌ [키워드 추출] 유효한 키워드가 0개: userEmail=${userEmail}`)
+        console.error(`   → YouTube 영상은 ${recentVideos.length}개 수집되었지만 유효한 키워드 추출에 실패했습니다.`)
       }
       
-      return keywords
+      return validKeywords
     } catch (error: any) {
       console.error(`❌ [키워드 추출] 전체 오류: userEmail=${userEmail}`)
       console.error(`   오류 타입: ${error.constructor.name}`)
@@ -521,19 +510,6 @@ export class BriefingService {
         console.error(`   API 응답 상태: ${error.response.status}`)
         console.error(`   API 응답 데이터:`, JSON.stringify(error.response.data, null, 2))
       }
-=======
-      // 빈 키워드 필터링
-      const validKeywords = keywords.filter(k => 
-        k.level1 && k.level1.trim() !== '' &&
-        k.level2 && k.level2.trim() !== '' &&
-        k.level3 && k.level3.trim() !== ''
-      )
-
-      console.log(`✅ ${validKeywords.length}개 유효한 트렌드 키워드 추출 완료 (전체: ${keywords.length}개)`)
-      return validKeywords
-    } catch (error) {
-      console.error('❌ 키워드 추출 오류:', error)
->>>>>>> Stashed changes
       return []
     }
   }
