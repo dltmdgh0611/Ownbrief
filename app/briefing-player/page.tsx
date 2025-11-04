@@ -194,6 +194,61 @@ export default function BriefingPlayerPage() {
       audioEngineRef.current = new AudioEngine()
     }
   }
+
+  // 오디오 컨텍스트 활성화 (모바일 환경 대응)
+  const ensureAudioContextActive = async (): Promise<boolean> => {
+    try {
+      if (!audioEngineRef.current) {
+        initAudioEngine()
+      }
+
+      const audioContext = audioEngineRef.current!.audioContext
+      
+      // 이미 실행 중이면 성공
+      if (audioContext.state === 'running') {
+        console.log('✅ 오디오 컨텍스트 이미 활성화됨')
+        return true
+      }
+
+      // suspended 상태면 재개 시도
+      if (audioContext.state === 'suspended') {
+        console.log('🔊 오디오 컨텍스트 재개 시도...')
+        
+        // 타임아웃 설정 (5초)
+        const resumePromise = audioContext.resume()
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('오디오 컨텍스트 활성화 타임아웃')), 5000)
+        })
+
+        await Promise.race([resumePromise, timeoutPromise])
+        
+        // 상태 확인 (resume 후 상태가 변경될 수 있으므로 다시 체크)
+        // resume() 후에는 상태가 변경될 수 있으므로 타입 단언 사용
+        const stateAfterResume: AudioContextState = audioContext.state as AudioContextState
+        if (stateAfterResume === 'running') {
+          console.log('✅ 오디오 컨텍스트 활성화 완료')
+          return true
+        } else {
+          console.warn(`⚠️ 오디오 컨텍스트 상태: ${stateAfterResume}`)
+          // running이 아니어도 계속 진행 (일부 브라우저에서 가능)
+          return true
+        }
+      }
+
+      // closed 상태면 재생성
+      if (audioContext.state === 'closed') {
+        console.log('🔄 오디오 컨텍스트 재생성')
+        audioEngineRef.current = new AudioEngine()
+        return true
+      }
+
+      return true
+    } catch (error) {
+      console.error('❌ 오디오 컨텍스트 활성화 실패:', error)
+      // 에러가 발생해도 계속 진행 시도
+      return false
+    }
+  }
   
   useEffect(() => {
     // 언마운트 시에만 정리
@@ -574,16 +629,41 @@ export default function BriefingPlayerPage() {
         audio.loop = true
         interludeAudioRef.current = audio
         
-        audio.addEventListener('canplaythrough', async () => {
+        // 모바일 환경 대응: 여러 이벤트 리스너 추가
+        const playAudio = async () => {
           try {
             await audio.play()
             console.log('🎵 Interlude started:', data.fileName)
-          } catch (playError) {
+          } catch (playError: any) {
             console.error('오디오 재생 실패:', playError)
+            // 모바일 환경에서 재시도
+            if (playError.name === 'NotAllowedError' || playError.name === 'NotSupportedError') {
+              console.warn('⚠️ 오디오 재생 권한 문제, 재시도 중...')
+              setTimeout(async () => {
+                try {
+                  await audio.play()
+                  console.log('🎵 Interlude 재시도 성공')
+                } catch (retryError) {
+                  console.error('재시도 실패:', retryError)
+                }
+              }, 500)
+            }
           }
-        })
+        }
         
+        // 여러 이벤트에서 재생 시도
+        audio.addEventListener('canplaythrough', playAudio, { once: true })
+        audio.addEventListener('loadeddata', playAudio, { once: true })
+        
+        // 즉시 재생 시도 (일부 브라우저에서 필요)
         audio.load()
+        
+        // 추가 안전장치: 짧은 딜레이 후 재생 시도
+        setTimeout(() => {
+          if (audio.paused) {
+            playAudio().catch(err => console.error('지연 재생 실패:', err))
+          }
+        }, 200)
       }
     } catch (error) {
       console.error('Interlude error:', error)
@@ -593,6 +673,9 @@ export default function BriefingPlayerPage() {
   // 첫 번째 섹션 시작
   const startFirstSection = useCallback(async () => {
     try {
+      // 오디오 컨텍스트 활성화 확인
+      await ensureAudioContextActive()
+      
       const firstSection = sections[0]
       if (firstSection.name === 'intro') {
         const today = new Date()
@@ -625,6 +708,9 @@ ${dateStr} 브리핑을 시작하겠습니다.`
           throw new Error('인트로 TTS 생성 실패')
         }
         
+        // 오디오 컨텍스트 재확인 (TTS 생성 중 상태가 변경될 수 있음)
+        await ensureAudioContextActive()
+        
         setCurrentSection('intro')
         setScript(introScript)
         
@@ -644,7 +730,22 @@ ${dateStr} 브리핑을 시작하겠습니다.`
         
         console.log('🎤 인트로 음성 재생 시작')
         currentPlayingIndexRef.current = 0
-        await audioEngineRef.current!.playBuffer(audioBuffer)
+        
+        // 재생 시도 (재시도 로직 포함)
+        try {
+          await audioEngineRef.current!.playBuffer(audioBuffer)
+        } catch (playError: any) {
+          console.error('오디오 재생 실패:', playError)
+          // 모바일 환경에서 재시도
+          if (playError.name === 'InvalidStateError' || audioEngineRef.current!.audioContext.state !== 'running') {
+            console.log('🔄 오디오 컨텍스트 재활성화 후 재시도...')
+            await ensureAudioContextActive()
+            await new Promise(resolve => setTimeout(resolve, 200))
+            await audioEngineRef.current!.playBuffer(audioBuffer)
+          } else {
+            throw playError
+          }
+        }
       }
     } catch (error) {
       console.error('첫 번째 섹션 시작 오류:', error)
@@ -652,7 +753,7 @@ ${dateStr} 브리핑을 시작하겠습니다.`
       setIsGenerating(false)
       setIsStopped(true)
     }
-  }, [generateTTS, toneOfVoice])
+  }, [generateTTS, toneOfVoice, ensureAudioContextActive])
 
   // 오늘 날짜 브리핑 확인
   const checkTodayBriefing = useCallback(async () => {
@@ -738,11 +839,14 @@ ${dateStr} 브리핑을 시작하겠습니다.`
         }
       })
 
-      // 오디오 컨텍스트 활성화
-      if (audioEngineRef.current!.audioContext.state === 'suspended') {
-        console.log('🔊 오디오 컨텍스트 재개')
-        await audioEngineRef.current!.audioContext.resume()
+      // 오디오 컨텍스트 활성화 (모바일 환경 대응)
+      const audioContextActive = await ensureAudioContextActive()
+      if (!audioContextActive) {
+        console.warn('⚠️ 오디오 컨텍스트 활성화 실패했지만 계속 진행')
       }
+
+      // 오디오 컨텍스트가 활성화될 때까지 약간 대기 (모바일 환경)
+      await new Promise(resolve => setTimeout(resolve, 100))
 
       await playInterlude()
       await startFirstSection()
