@@ -138,9 +138,18 @@ export async function POST(request: NextRequest) {
             })
 
             const keywords = existingKeywords?.keywords as any[]
-            if (!existingKeywords || !keywords || trendIndex >= keywords.length) {
+            if (!existingKeywords || !keywords || keywords.length === 0 || trendIndex >= keywords.length) {
               console.log('⚠️ 키워드 없음 또는 인덱스 초과')
-              data = { skip: true }
+              // 키워드가 없을 때는 안내 메시지 스크립트 생성
+              let message = ''
+              if (toneOfVoice === 'zephyr') {
+                message = '트렌드 1, 2, 3에서 관심사를 찾지 못했어요. 유튜브에 저장을 시키면 다시 시도해 볼게요.'
+              } else if (toneOfVoice === 'charon') {
+                message = '트렌드 1, 2, 3에서 관심사를 찾지 못했어. 유튜브에 저장을 시키면 다시 시도해 볼게.'
+              } else {
+                message = '트렌드 1, 2, 3에서 관심사를 찾지 못했습니다. 유튜브에 저장을 시키면 다시 시도해 보겠습니다.'
+              }
+              data = { skip: true, script: message }
             } else {
               // 해당 키워드만 처리
               const keyword = keywords[trendIndex]
@@ -155,7 +164,16 @@ export async function POST(request: NextRequest) {
             }
           } catch (error) {
             console.error('❌ 트렌드 키워드 처리 오류:', error)
-            data = { skip: true }
+            // 에러 발생 시에도 안내 메시지 스크립트 생성
+            let message = ''
+            if (toneOfVoice === 'zephyr') {
+              message = '트렌드 1, 2, 3에서 관심사를 찾지 못했어요. 유튜브에 저장을 시키면 다시 시도해 볼게요.'
+            } else if (toneOfVoice === 'charon') {
+              message = '트렌드 1, 2, 3에서 관심사를 찾지 못했어. 유튜브에 저장을 시키면 다시 시도해 볼게.'
+            } else {
+              message = '트렌드 1, 2, 3에서 관심사를 찾지 못했습니다. 유튜브에 저장을 시키면 다시 시도해 보겠습니다.'
+            }
+            data = { skip: true, script: message }
           }
           break
         }
@@ -171,9 +189,32 @@ export async function POST(request: NextRequest) {
 
       // trend 섹션은 이미 스크립트가 준비되어 있음
       let sectionScript
-      if (nextSection.name.startsWith('trend') && data && data.script) {
-        sectionScript = data.script
-        console.log(`✅ 트렌드 스크립트 직접 사용: ${sectionScript.length}자`)
+      if (nextSection.name.startsWith('trend')) {
+        if (data && data.script) {
+          // 키워드가 있거나 skip 메시지가 있는 경우
+          sectionScript = data.script
+          console.log(`✅ 트렌드 스크립트 직접 사용: ${sectionScript.length}자`)
+        } else if (data && data.skip) {
+          // skip: true인데 script가 없는 경우 (fallback)
+          let message = ''
+          if (toneOfVoice === 'zephyr') {
+            message = '트렌드 1, 2, 3에서 관심사를 찾지 못했어요. 유튜브에 저장을 시키면 다시 시도해 볼게요.'
+          } else if (toneOfVoice === 'charon') {
+            message = '트렌드 1, 2, 3에서 관심사를 찾지 못했어. 유튜브에 저장을 시키면 다시 시도해 볼게.'
+          } else {
+            message = '트렌드 1, 2, 3에서 관심사를 찾지 못했습니다. 유튜브에 저장을 시키면 다시 시도해 보겠습니다.'
+          }
+          sectionScript = message
+          console.log(`⚠️ 트렌드 스크립트 fallback 사용: ${sectionScript.length}자`)
+        } else {
+          // 그 외의 경우 일반 섹션 스크립트 생성
+          sectionScript = await BriefingService.generateSectionScript(
+            nextSection.name, 
+            data, 
+            persona, // persona 전달
+            toneOfVoice // 말투 전달
+          )
+        }
       } else {
         sectionScript = await BriefingService.generateSectionScript(
           nextSection.name, 

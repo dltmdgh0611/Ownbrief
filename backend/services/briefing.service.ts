@@ -357,30 +357,41 @@ export class BriefingService {
       }
 
       // 키워드만 추출 (뉴스/스크립트는 브리핑 시에만 생성)
-      const keywords = await this.extractKeywordsOnly(userEmail)
-      
-      if (keywords.length === 0) {
-        console.log('⚠️ 키워드 추출 실패 - 저장하지 않음')
-        return
+      // extractKeywordsOnly는 실패해도 빈 배열을 반환하므로 안전
+      let keywords: Array<{ level1: string, level2: string, level3: string }> = []
+      try {
+        keywords = await this.extractKeywordsOnly(userEmail)
+      } catch (error) {
+        console.error('❌ 키워드 추출 오류 (빈 배열로 저장):', error)
+        keywords = []
       }
-
-      // DB에 저장 (Prisma 쿼리로 변경)
+      
+      // 키워드가 없어도 빈 배열로 저장하여 다음 단계에서 처리할 수 있도록 함
       const expiresAt = new Date(today.getTime() + 24 * 60 * 60 * 1000)
 
-      await prisma.dailyTrendKeywords.create({
-        data: {
-          userId: user.id,
-          keywords: keywords as any,
-          createdAt: today,
-          expiresAt: expiresAt
-        }
-      })
+      try {
+        await prisma.dailyTrendKeywords.create({
+          data: {
+            userId: user.id,
+            keywords: keywords as any,
+            createdAt: today,
+            expiresAt: expiresAt
+          }
+        })
 
-      console.log('✅ 키워드 생성 및 저장 완료')
+        if (keywords.length === 0) {
+          console.log('⚠️ 키워드 추출 실패 - 빈 배열로 저장됨')
+        } else {
+          console.log('✅ 키워드 생성 및 저장 완료')
+        }
+      } catch (dbError) {
+        // DB 저장 오류는 로그만 남기고 에러를 던지지 않음 (이미 생성된 경우 등)
+        console.error('❌ 키워드 DB 저장 오류 (무시):', dbError)
+      }
     } catch (error) {
       console.error('❌ 백그라운드 키워드 생성 오류:', error)
-      // 에러를 다시 throw하여 브리핑이 멈추도록 함
-      throw error
+      // 에러를 다시 throw하지 않고 로그만 남김 (브리핑이 계속 진행되도록)
+      // 빈 배열이 저장되지 않았더라도 next-section에서 처리 가능
     }
   }
 
