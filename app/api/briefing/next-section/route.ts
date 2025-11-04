@@ -17,6 +17,7 @@ export const maxDuration = 120 // 120초 타임아웃 - 관심사 섹션 등 긴
  * 다음 섹션 요청 API
  */
 export async function POST(request: NextRequest) {
+  let userEmail: string | undefined = undefined
   try {
     console.log(`🎵 [next-section] API 요청 시작`)
     const session = await getServerSession(authOptions)
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { sectionIndex, toneOfVoice = 'default' } = await request.json()
-    const userEmail = session.user.email
+    userEmail = session.user.email
     console.log(`📋 [next-section] 요청 파라미터: userEmail=${userEmail}, sectionIndex=${sectionIndex}, toneOfVoice=${toneOfVoice}`)
 
     // 섹션 인덱스 유효성 검증
