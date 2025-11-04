@@ -1108,6 +1108,7 @@ ${dateStr} 브리핑을 시작하겠습니다.`
             hueShift={0.3}
             glow={1.2}
             scale={3.5}
+            timeScale={0.2} // 성능 최적화: 애니메이션 속도 감소
           />
           <div className="absolute inset-0 bg-black/40"></div>
         </div>
@@ -1119,7 +1120,13 @@ ${dateStr} 브리핑을 시작하겠습니다.`
   return (
     <div className="h-screen relative flex flex-col text-white overflow-hidden" style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif' }}>
       {/* Prism 배경 */}
-      <div className="absolute inset-0 z-0 prism-background-container">
+      <div 
+        className="absolute inset-0 z-0 prism-background-container"
+        style={{
+          willChange: 'auto', // 성능 최적화: GPU 가속 최소화
+          transform: 'translateZ(0)', // GPU 레이어 최적화
+        }}
+      >
         <Prism
           animationType="rotate"
           suspendWhenOffscreen={true}
@@ -1127,6 +1134,7 @@ ${dateStr} 브리핑을 시작하겠습니다.`
           hueShift={0.3}
           glow={1.2}
           scale={3.5}
+          timeScale={0.2} // 성능 최적화: 애니메이션 속도 감소
         />
       </div>
       {/* 상단 헤더 */}

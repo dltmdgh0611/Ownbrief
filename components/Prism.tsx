@@ -61,7 +61,10 @@ const Prism: React.FC<PrismProps> = ({
     const HOVSTR = Math.max(0, hoverStrength || 1);
     const INERT = Math.max(0, Math.min(1, inertia || 0.12));
 
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    // 성능 최적화: DPR 제한 및 해상도 스케일링
+    const maxDPR = 1.5; // 최대 DPR 제한 (원래 2에서 1.5로 감소)
+    const resolutionScale = 0.8; // 해상도 스케일링 (80%로 렌더링)
+    const dpr = Math.min(maxDPR, window.devicePixelRatio || 1) * resolutionScale;
     const renderer = new Renderer({
       dpr,
       alpha: transparent,
@@ -175,7 +178,7 @@ const Prism: React.FC<PrismProps> = ({
           wob = mat2(c0, c1, c2, c0);
         }
 
-        const int STEPS = 100;
+        const int STEPS = 60; // 성능 최적화: 100에서 60으로 감소
         for (int i = 0; i < STEPS; i++) {
           p = vec3(f, z);
           p.xz = p.xz * wob;
@@ -288,6 +291,10 @@ const Prism: React.FC<PrismProps> = ({
     const NOISE_IS_ZERO = NOISE < 1e-6;
     let raf = 0;
     const t0 = performance.now();
+    let lastFrameTime = 0;
+    const targetFPS = 30; // 성능 최적화: 30fps로 제한
+    const frameInterval = 1000 / targetFPS;
+    
     const startRAF = () => {
       if (raf) return;
       raf = requestAnimationFrame(render);
@@ -348,6 +355,15 @@ const Prism: React.FC<PrismProps> = ({
     }
 
     const render = (t: number) => {
+      // 성능 최적화: 프레임 레이트 제한
+      const now = performance.now();
+      const elapsed = now - lastFrameTime;
+      if (elapsed < frameInterval) {
+        raf = requestAnimationFrame(render);
+        return;
+      }
+      lastFrameTime = now - (elapsed % frameInterval);
+      
       const time = (t - t0) * 0.001;
       program.uniforms.iTime.value = time;
 
@@ -414,22 +430,44 @@ const Prism: React.FC<PrismProps> = ({
       __prismIO?: IntersectionObserver;
     }
 
+    // 성능 최적화: 페이지 가시성 감지 (탭이 비활성화되면 렌더링 중지)
+    let isPageVisible = !document.hidden;
+    const handleVisibilityChange = () => {
+      isPageVisible = !document.hidden;
+      if (!isPageVisible) {
+        stopRAF();
+      } else if (suspendWhenOffscreen) {
+        // IntersectionObserver가 활성화되어 있으면 자동으로 처리됨
+        const io = (container as PrismContainer).__prismIO;
+        if (io) {
+          // IntersectionObserver가 있으면 다시 시작
+          startRAF();
+        } else {
+          startRAF();
+        }
+      } else {
+        startRAF();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
     if (suspendWhenOffscreen) {
       const io = new IntersectionObserver(entries => {
-        const vis = entries.some(e => e.isIntersecting);
+        const vis = entries.some(e => e.isIntersecting) && isPageVisible;
         if (vis) startRAF();
         else stopRAF();
       });
       io.observe(container);
-      startRAF();
+      if (isPageVisible) startRAF();
       (container as PrismContainer).__prismIO = io;
     } else {
-      startRAF();
+      if (isPageVisible) startRAF();
     }
 
     return () => {
       stopRAF();
       ro.disconnect();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (animationType === 'hover') {
         if (onPointerMove) window.removeEventListener('pointermove', onPointerMove as EventListener);
         window.removeEventListener('mouseleave', onLeave);
