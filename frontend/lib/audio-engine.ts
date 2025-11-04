@@ -106,8 +106,14 @@ export class AudioEngine {
    * 단일 오디오 버퍼 재생 (파이프라인 방식용)
    */
   playBuffer(audioBuffer: AudioBuffer): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
+        // 오디오 컨텍스트 활성화 확인 (재생 전 필수)
+        if (this.audioContext.state === 'suspended') {
+          console.log('🔊 오디오 컨텍스트가 suspended 상태 - 재개 시도')
+          await this.audioContext.resume()
+        }
+        
         // 현재 재생 중인 것이 있으면 중지
         if (this.currentSource) {
           this.currentSource.stop()
@@ -118,6 +124,12 @@ export class AudioEngine {
         if (this.animationFrameId !== null) {
           cancelAnimationFrame(this.animationFrameId)
           this.animationFrameId = null
+        }
+
+        // 오디오 컨텍스트 상태 재확인 (resume 후)
+        if (this.audioContext.state === 'suspended') {
+          console.warn('⚠️ 오디오 컨텍스트가 여전히 suspended - 재시도')
+          await this.audioContext.resume()
         }
 
         this.currentSource = this.audioContext.createBufferSource()
@@ -159,6 +171,14 @@ export class AudioEngine {
     const updateTime = () => {
       if (!this.isPlaying || !this.currentSource) {
         return
+      }
+
+      // 재생 중 오디오 컨텍스트가 suspend되면 자동 재개
+      if (this.audioContext.state === 'suspended') {
+        console.warn('⚠️ 재생 중 오디오 컨텍스트가 suspended됨 - 자동 재개')
+        this.audioContext.resume().catch(err => {
+          console.error('오디오 컨텍스트 재개 실패:', err)
+        })
       }
 
       const elapsed = this.audioContext.currentTime - this.startTime

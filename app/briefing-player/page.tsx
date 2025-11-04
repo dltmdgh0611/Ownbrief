@@ -469,6 +469,11 @@ export default function BriefingPlayerPage() {
       }
       
       const fadeOutInterval = setInterval(() => {
+        // 오디오 컨텍스트 상태 확인
+        if (audioEngineRef.current?.audioContext.state === 'suspended') {
+          ensureAudioContextActive().catch(err => console.error('오디오 컨텍스트 재개 실패:', err))
+        }
+        
         if (audio.volume > 0.01) {
           audio.volume -= 0.01
         } else {
@@ -480,13 +485,16 @@ export default function BriefingPlayerPage() {
       }, 50)
       ;(audio as any).__fadeOutInterval = fadeOutInterval
     }
-  }, [])
+  }, [ensureAudioContextActive])
 
   // Interlude 페이드인
-  const fadeInInterlude = useCallback(() => {
+  const fadeInInterlude = useCallback(async () => {
     if (interludeAudioRef.current) {
       const audio = interludeAudioRef.current
       console.log(`🎵 Interlude 페이드인 시작 - 현재 볼륨: ${audio.volume}`)
+      
+      // 오디오 컨텍스트 활성화 확인
+      await ensureAudioContextActive()
       
       // 기존 interval 정리
       if ((audio as any).__fadeInInterval) {
@@ -494,9 +502,21 @@ export default function BriefingPlayerPage() {
       }
       
       audio.volume = 0
-      audio.play()
+      try {
+        await audio.play()
+      } catch (playError) {
+        console.error('Interlude 페이드인 재생 실패:', playError)
+        // 재시도
+        await ensureAudioContextActive()
+        await audio.play().catch(err => console.error('재시도 실패:', err))
+      }
       
       const fadeInInterval = setInterval(() => {
+        // 오디오 컨텍스트 상태 확인
+        if (audioEngineRef.current?.audioContext.state === 'suspended') {
+          ensureAudioContextActive().catch(err => console.error('오디오 컨텍스트 재개 실패:', err))
+        }
+        
         if (audio.volume < 0.3) {
           audio.volume += 0.01
         } else {
@@ -507,7 +527,7 @@ export default function BriefingPlayerPage() {
       }, 50)
       ;(audio as any).__fadeInInterval = fadeInInterval
     }
-  }, [])
+  }, [ensureAudioContextActive])
 
   // 음성 재생 종료 핸들러
   const handleAudioEnd = useCallback(async () => {
@@ -667,14 +687,30 @@ export default function BriefingPlayerPage() {
       console.log('Interlude API 응답:', data)
 
       if (data.success && data.audioUrl) {
+        // 오디오 컨텍스트 활성화 확인 (Interlude 재생 전)
+        await ensureAudioContextActive()
+        
         const audio = new Audio(data.audioUrl)
         audio.volume = 0.3
         audio.loop = true
         interludeAudioRef.current = audio
         
+        // 오디오 컨텍스트 상태 변화 감지
+        const handleContextStateChange = () => {
+          if (audioEngineRef.current?.audioContext.state === 'suspended') {
+            console.warn('⚠️ Interlude 재생 중 오디오 컨텍스트가 suspended됨')
+            ensureAudioContextActive().catch(err => {
+              console.error('오디오 컨텍스트 재개 실패:', err)
+            })
+          }
+        }
+        audioEngineRef.current?.audioContext.addEventListener('statechange', handleContextStateChange)
+        
         // 모바일 환경 대응: 여러 이벤트 리스너 추가
         const playAudio = async () => {
           try {
+            // 재생 전 오디오 컨텍스트 활성화 확인
+            await ensureAudioContextActive()
             await audio.play()
             console.log('🎵 Interlude started:', data.fileName)
           } catch (playError: any) {
@@ -684,6 +720,7 @@ export default function BriefingPlayerPage() {
               console.warn('⚠️ 오디오 재생 권한 문제, 재시도 중...')
               setTimeout(async () => {
                 try {
+                  await ensureAudioContextActive()
                   await audio.play()
                   console.log('🎵 Interlude 재시도 성공')
                 } catch (retryError) {
@@ -854,6 +891,18 @@ ${dateStr} 브리핑을 시작하겠습니다.`
           initAudioEngine()
         }
         
+        // 오디오 컨텍스트 상태 변화 지속 모니터링
+        const audioContext = audioEngineRef.current!.audioContext
+        const handleContextStateChange = () => {
+          if (audioContext.state === 'suspended') {
+            console.warn('⚠️ 오디오 컨텍스트가 suspended됨 - 자동 재개 시도')
+            ensureAudioContextActive().catch(err => {
+              console.error('오디오 컨텍스트 재개 실패:', err)
+            })
+          }
+        }
+        audioContext.addEventListener('statechange', handleContextStateChange)
+        
         audioEngineRef.current!.onPlaybackStart(() => {
           console.log('🎵 재생 시작 이벤트 발생')
           handleAudioStart()
@@ -983,6 +1032,19 @@ ${dateStr} 브리핑을 시작하겠습니다.`
 
       // 이벤트 핸들러 설정
       console.log('🎵 이벤트 핸들러 설정')
+      
+      // 오디오 컨텍스트 상태 변화 지속 모니터링
+      const audioContext = audioEngineRef.current!.audioContext
+      const handleContextStateChange = () => {
+        if (audioContext.state === 'suspended') {
+          console.warn('⚠️ 오디오 컨텍스트가 suspended됨 - 자동 재개 시도')
+          ensureAudioContextActive().catch(err => {
+            console.error('오디오 컨텍스트 재개 실패:', err)
+          })
+        }
+      }
+      audioContext.addEventListener('statechange', handleContextStateChange)
+      
       audioEngineRef.current!.onPlaybackStart(() => {
         console.log('🎵 재생 시작 이벤트 발생')
         handleAudioStart()
