@@ -26,16 +26,20 @@ export class YouTubeClient {
    */
   static async getUserPlaylists(userEmail: string, maxResults = 50): Promise<YoutubePlaylist[]> {
     try {
+      console.log(`📺 [YouTube] 사용자 플레이리스트 조회 시작: userEmail=${userEmail}, maxResults=${maxResults}`)
+      
       const accessToken = await this.getAccessToken(userEmail)
       if (!accessToken) {
-        console.log('YouTube: No access token found')
+        console.error(`❌ [YouTube] Access Token 없음: userEmail=${userEmail}`)
         return []
       }
+      console.log(`✅ [YouTube] Access Token 획득 성공: userEmail=${userEmail}`)
 
       const youtube = google.youtube({ version: 'v3' })
       const auth = new google.auth.OAuth2()
       auth.setCredentials({ access_token: accessToken })
 
+      console.log(`🔍 [YouTube] 플레이리스트 목록 API 호출 중...`)
       const response = await youtube.playlists.list({
         auth,
         part: ['snippet', 'contentDetails'],
@@ -44,15 +48,30 @@ export class YouTubeClient {
       })
 
       const playlists = response.data.items || []
+      console.log(`📊 [YouTube] 플레이리스트 조회 결과: 총 ${playlists.length}개 플레이리스트 발견`)
 
-      return playlists.map(playlist => ({
+      const result = playlists.map(playlist => ({
         id: playlist.id!,
         title: playlist.snippet?.title || '제목 없음',
         description: playlist.snippet?.description || '',
         itemCount: playlist.contentDetails?.itemCount || 0,
       }))
-    } catch (error) {
-      console.error('YouTube API error:', error)
+
+      // 각 플레이리스트 상세 정보 로그
+      result.forEach((playlist, idx) => {
+        console.log(`  📋 [YouTube] 플레이리스트 ${idx + 1}: id=${playlist.id}, title="${playlist.title}", itemCount=${playlist.itemCount}`)
+      })
+
+      return result
+    } catch (error: any) {
+      console.error(`❌ [YouTube] 플레이리스트 조회 오류: userEmail=${userEmail}`)
+      console.error(`   오류 타입: ${error.constructor.name}`)
+      console.error(`   오류 메시지: ${error.message}`)
+      console.error(`   오류 스택:`, error.stack)
+      if (error.response) {
+        console.error(`   API 응답 상태: ${error.response.status}`)
+        console.error(`   API 응답 데이터:`, JSON.stringify(error.response.data, null, 2))
+      }
       return []
     }
   }
@@ -62,9 +81,11 @@ export class YouTubeClient {
    */
   static async getRecentSavedVideos(userEmail: string, maxVideos = 5): Promise<YoutubeVideo[]> {
     try {
+      console.log(`📺 [YouTube] 최근 저장 영상 수집 시작: userEmail=${userEmail}, maxVideos=${maxVideos}`)
+      
       const accessToken = await this.getAccessToken(userEmail)
       if (!accessToken) {
-        console.log('YouTube: No access token found')
+        console.error(`❌ [YouTube] Access Token 없음: userEmail=${userEmail}`)
         return []
       }
 
@@ -73,13 +94,28 @@ export class YouTubeClient {
       auth.setCredentials({ access_token: accessToken })
 
       const allVideos: YoutubeVideo[] = []
+      const playlistStats: Array<{ playlistId: string, playlistTitle: string, fetched: number, valid: number }> = []
 
       // 1. 사용자의 플레이리스트 가져오기
+      console.log(`🔍 [YouTube] 플레이리스트 목록 조회 중...`)
       const playlists = await this.getUserPlaylists(userEmail, 10)
+      console.log(`📊 [YouTube] 조회된 플레이리스트 수: ${playlists.length}개`)
+
+      if (playlists.length === 0) {
+        console.error(`❌ [YouTube] 플레이리스트가 없음: userEmail=${userEmail}`)
+        return []
+      }
 
       // 2. 각 플레이리스트에서 최신 영상 가져오기
-      for (const playlist of playlists) {
+      console.log(`🔍 [YouTube] 각 플레이리스트에서 영상 수집 시작...`)
+      for (let i = 0; i < playlists.length; i++) {
+        const playlist = playlists[i]
+        let fetchedCount = 0
+        let validCount = 0
+        
         try {
+          console.log(`  📋 [YouTube] 플레이리스트 ${i + 1}/${playlists.length} 처리 중: id=${playlist.id}, title="${playlist.title}", 총 아이템=${playlist.itemCount}`)
+          
           const playlistItems = await youtube.playlistItems.list({
             auth,
             part: ['snippet', 'contentDetails'],
@@ -88,29 +124,65 @@ export class YouTubeClient {
           })
 
           const items = playlistItems.data.items || []
+          fetchedCount = items.length
+          console.log(`    📥 [YouTube] 플레이리스트 "${playlist.title}"에서 ${fetchedCount}개 아이템 조회됨`)
           
-          items.forEach(item => {
+          items.forEach((item, itemIdx) => {
             const snippet = item.snippet
+            const videoId = item.contentDetails?.videoId || item.id || ''
+            const title = snippet?.title || ''
+            
             if (snippet?.title && snippet.title !== 'Private video' && snippet.title !== 'Deleted video') {
               allVideos.push({
-                id: item.contentDetails?.videoId || item.id || '',
+                id: videoId,
                 title: snippet.title,
                 description: snippet.description || '',
                 channelTitle: snippet.channelTitle || '',
                 publishedAt: snippet.publishedAt || '',
                 thumbnailUrl: snippet.thumbnails?.default?.url || undefined,
               })
+              validCount++
+              console.log(`      ✅ [YouTube] 유효한 영상 ${itemIdx + 1}: id=${videoId}, title="${title.substring(0, 50)}${title.length > 50 ? '...' : ''}"`)
+            } else {
+              console.log(`      ⚠️ [YouTube] 제외된 아이템 ${itemIdx + 1}: title="${title}" (Private/Deleted 또는 제목 없음)`)
             }
           })
 
+          playlistStats.push({
+            playlistId: playlist.id,
+            playlistTitle: playlist.title,
+            fetched: fetchedCount,
+            valid: validCount
+          })
+
           if (allVideos.length >= maxVideos * 2) {
+            console.log(`  ⏹️ [YouTube] 충분한 영상 수집됨 (${allVideos.length}개), 수집 중단`)
             break // 충분히 모았으면 중단
           }
-        } catch (error) {
-          console.error(`Error fetching playlist ${playlist.id}:`, error)
+        } catch (error: any) {
+          console.error(`  ❌ [YouTube] 플레이리스트 "${playlist.title}" (id=${playlist.id}) 처리 오류:`)
+          console.error(`     오류 타입: ${error.constructor.name}`)
+          console.error(`     오류 메시지: ${error.message}`)
+          if (error.response) {
+            console.error(`     API 응답 상태: ${error.response.status}`)
+            console.error(`     API 응답 데이터:`, JSON.stringify(error.response.data, null, 2))
+          }
+          playlistStats.push({
+            playlistId: playlist.id,
+            playlistTitle: playlist.title,
+            fetched: 0,
+            valid: 0
+          })
           continue
         }
       }
+
+      // 수집 통계 로그
+      console.log(`📊 [YouTube] 플레이리스트별 수집 통계:`)
+      playlistStats.forEach((stat, idx) => {
+        console.log(`  ${idx + 1}. "${stat.playlistTitle}" (id=${stat.playlistId}): 조회=${stat.fetched}개, 유효=${stat.valid}개`)
+      })
+      console.log(`📊 [YouTube] 전체 수집된 영상: ${allVideos.length}개 (중복 포함)`)
 
       // 3. 게시 날짜 기준으로 정렬 (최신순)
       allVideos.sort((a, b) => 
@@ -122,11 +194,28 @@ export class YouTubeClient {
         new Map(allVideos.map(v => [v.id, v])).values()
       )
 
-      console.log(`✅ Found ${uniqueVideos.length} recent videos from playlists`)
+      console.log(`📊 [YouTube] 중복 제거 후: ${uniqueVideos.length}개 (중복 ${allVideos.length - uniqueVideos.length}개 제거됨)`)
+      console.log(`📊 [YouTube] 최종 반환 영상: ${Math.min(uniqueVideos.length, maxVideos)}개 (최대 ${maxVideos}개)`)
+
+      if (uniqueVideos.length === 0) {
+        console.error(`❌ [YouTube] 최종 수집된 영상이 0개: userEmail=${userEmail}`)
+        console.error(`   플레이리스트 통계:`, JSON.stringify(playlistStats, null, 2))
+      } else {
+        uniqueVideos.slice(0, maxVideos).forEach((video, idx) => {
+          console.log(`  ✅ [YouTube] 최종 영상 ${idx + 1}: id=${video.id}, title="${video.title.substring(0, 50)}${video.title.length > 50 ? '...' : ''}"`)
+        })
+      }
 
       return uniqueVideos.slice(0, maxVideos)
-    } catch (error) {
-      console.error('YouTube getRecentSavedVideos error:', error)
+    } catch (error: any) {
+      console.error(`❌ [YouTube] getRecentSavedVideos 전체 오류: userEmail=${userEmail}`)
+      console.error(`   오류 타입: ${error.constructor.name}`)
+      console.error(`   오류 메시지: ${error.message}`)
+      console.error(`   오류 스택:`, error.stack)
+      if (error.response) {
+        console.error(`   API 응답 상태: ${error.response.status}`)
+        console.error(`   API 응답 데이터:`, JSON.stringify(error.response.data, null, 2))
+      }
       return []
     }
   }

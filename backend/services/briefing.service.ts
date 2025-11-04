@@ -327,19 +327,22 @@ export class BriefingService {
    */
   static async generateAndSaveTrendKeywords(userEmail: string): Promise<void> {
     try {
-      console.log('🔨 백그라운드 키워드 생성 시작...')
+      console.log(`🔨 [키워드 생성] 백그라운드 키워드 생성 시작: userEmail=${userEmail}`)
 
       const user = await prisma.user.findUnique({
         where: { email: userEmail }
       })
 
       if (!user) {
+        console.error(`❌ [키워드 생성] 사용자를 찾을 수 없음: userEmail=${userEmail}`)
         throw new Error('User not found')
       }
+      console.log(`✅ [키워드 생성] 사용자 조회 완료: userId=${user.id}`)
 
       // 오늘 이미 생성된 키워드가 있는지 확인
       const now = new Date()
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      console.log(`📅 [키워드 생성] 오늘 날짜 기준 확인: today=${today.toISOString()}`)
 
       // Prisma 쿼리로 변경 (Raw SQL 대신)
       const existing = await prisma.dailyTrendKeywords.findFirst({
@@ -352,7 +355,8 @@ export class BriefingService {
       })
 
       if (existing) {
-        console.log('✅ 이미 오늘 키워드가 생성됨')
+        const existingKeywords = existing.keywords as any[] || []
+        console.log(`ℹ️ [키워드 생성] 이미 오늘 키워드가 생성됨: 키워드 ${existingKeywords.length}개 (생성 시간: ${existing.createdAt.toISOString()})`)
         return
       }
 
@@ -360,14 +364,20 @@ export class BriefingService {
       // extractKeywordsOnly는 실패해도 빈 배열을 반환하므로 안전
       let keywords: Array<{ level1: string, level2: string, level3: string }> = []
       try {
+        console.log(`🔍 [키워드 생성] 키워드 추출 시작...`)
         keywords = await this.extractKeywordsOnly(userEmail)
-      } catch (error) {
-        console.error('❌ 키워드 추출 오류 (빈 배열로 저장):', error)
+        console.log(`📊 [키워드 생성] 키워드 추출 완료: ${keywords.length}개`)
+      } catch (error: any) {
+        console.error(`❌ [키워드 생성] 키워드 추출 오류 (빈 배열로 저장): userEmail=${userEmail}`)
+        console.error(`   오류 타입: ${error.constructor.name}`)
+        console.error(`   오류 메시지: ${error.message}`)
+        console.error(`   오류 스택:`, error.stack)
         keywords = []
       }
       
       // 키워드가 없어도 빈 배열로 저장하여 다음 단계에서 처리할 수 있도록 함
       const expiresAt = new Date(today.getTime() + 24 * 60 * 60 * 1000)
+      console.log(`💾 [키워드 생성] DB 저장 시작: 키워드 ${keywords.length}개, 만료 시간=${expiresAt.toISOString()}`)
 
       try {
         await prisma.dailyTrendKeywords.create({
@@ -380,16 +390,26 @@ export class BriefingService {
         })
 
         if (keywords.length === 0) {
-          console.log('⚠️ 키워드 추출 실패 - 빈 배열로 저장됨')
+          console.error(`⚠️ [키워드 생성] 키워드 추출 실패 - 빈 배열로 저장됨: userEmail=${userEmail}`)
+          console.error(`   → 사용자가 유튜브에 영상을 저장했는지 확인하세요.`)
         } else {
-          console.log('✅ 키워드 생성 및 저장 완료')
+          console.log(`✅ [키워드 생성] 키워드 생성 및 저장 완료: ${keywords.length}개`)
         }
-      } catch (dbError) {
+      } catch (dbError: any) {
         // DB 저장 오류는 로그만 남기고 에러를 던지지 않음 (이미 생성된 경우 등)
-        console.error('❌ 키워드 DB 저장 오류 (무시):', dbError)
+        console.error(`❌ [키워드 생성] 키워드 DB 저장 오류: userEmail=${userEmail}`)
+        console.error(`   오류 타입: ${dbError.constructor.name}`)
+        console.error(`   오류 메시지: ${dbError.message}`)
+        console.error(`   오류 코드: ${dbError.code || 'N/A'}`)
+        if (dbError.meta) {
+          console.error(`   DB 메타 정보:`, JSON.stringify(dbError.meta, null, 2))
+        }
       }
-    } catch (error) {
-      console.error('❌ 백그라운드 키워드 생성 오류:', error)
+    } catch (error: any) {
+      console.error(`❌ [키워드 생성] 백그라운드 키워드 생성 전체 오류: userEmail=${userEmail}`)
+      console.error(`   오류 타입: ${error.constructor.name}`)
+      console.error(`   오류 메시지: ${error.message}`)
+      console.error(`   오류 스택:`, error.stack)
       // 에러를 다시 throw하지 않고 로그만 남김 (브리핑이 계속 진행되도록)
       // 빈 배열이 저장되지 않았더라도 next-section에서 처리 가능
     }
@@ -400,32 +420,70 @@ export class BriefingService {
    */
   static async extractKeywordsOnly(userEmail: string): Promise<Array<{ level1: string, level2: string, level3: string }>> {
     try {
+      console.log(`🔍 [키워드 추출] 시작: userEmail=${userEmail}`)
+      
       const { YouTubeClient } = await import('@/backend/lib/youtube')
       const { extractDeepKeywords } = await import('@/backend/lib/gemini')
       
-      console.log('🔍 키워드 추출 시작...')
-
       // 1. YouTube 최근 저장 영상 5개 가져오기
+      console.log(`📺 [키워드 추출] YouTube 영상 수집 시작...`)
       const recentVideos = await YouTubeClient.getRecentSavedVideos(userEmail, 5)
+      console.log(`📊 [키워드 추출] YouTube 영상 수집 결과: ${recentVideos.length}개`)
+      
       if (recentVideos.length === 0) {
-        console.log('⚠️ YouTube 영상 없음')
+        console.error(`❌ [키워드 추출] YouTube 영상이 0개: userEmail=${userEmail}`)
+        console.error(`   → 키워드 추출이 불가능합니다. 사용자가 유튜브에 영상을 저장했는지 확인하세요.`)
         return []
       }
 
+      // 수집된 영상 정보 로그
+      recentVideos.forEach((video, idx) => {
+        console.log(`  📺 [키워드 추출] 영상 ${idx + 1}: id=${video.id}, title="${video.title.substring(0, 60)}${video.title.length > 60 ? '...' : ''}"`)
+      })
+
       // 2. 페르소나 가져오기
-      const persona = await PersonaService.getPersona(userEmail)
-      const personaInterests = persona?.interests || []
+      console.log(`👤 [키워드 추출] 페르소나 정보 조회 중...`)
+      let persona: Persona | null = null
+      let personaInterests: string[] = []
+      try {
+        persona = await PersonaService.getPersona(userEmail)
+        personaInterests = persona?.interests || []
+        console.log(`✅ [키워드 추출] 페르소나 정보 조회 완료: 관심사 ${personaInterests.length}개`)
+        if (personaInterests.length > 0) {
+          console.log(`   관심사: ${personaInterests.slice(0, 5).join(', ')}${personaInterests.length > 5 ? '...' : ''}`)
+        }
+      } catch (personaError: any) {
+        console.error(`⚠️ [키워드 추출] 페르소나 조회 실패 (계속 진행):`, personaError.message)
+        personaInterests = []
+      }
 
       // 3. 키워드 추출 (YouTube 70% + 페르소나 30%)
-      const keywords = await extractDeepKeywords(
-        recentVideos.map(v => ({ title: v.title, description: v.description })),
-        personaInterests
-      )
+      console.log(`🤖 [키워드 추출] Gemini AI를 통한 키워드 추출 시작...`)
+      console.log(`   입력: YouTube 영상 ${recentVideos.length}개, 페르소나 관심사 ${personaInterests.length}개`)
+      
+      const videoData = recentVideos.map(v => ({ title: v.title, description: v.description }))
+      const keywords = await extractDeepKeywords(videoData, personaInterests)
 
-      console.log(`✅ ${keywords.length}개 트렌드 키워드 추출 완료`)
+      console.log(`✅ [키워드 추출] 완료: ${keywords.length}개 트렌드 키워드 추출됨`)
+      if (keywords.length > 0) {
+        keywords.forEach((keyword, idx) => {
+          console.log(`  🔑 [키워드 추출] 키워드 ${idx + 1}: ${keyword.level1} > ${keyword.level2} > ${keyword.level3}`)
+        })
+      } else {
+        console.error(`❌ [키워드 추출] 추출된 키워드가 0개: userEmail=${userEmail}`)
+        console.error(`   → YouTube 영상은 ${recentVideos.length}개 수집되었지만 키워드 추출에 실패했습니다.`)
+      }
+      
       return keywords
-    } catch (error) {
-      console.error('❌ 키워드 추출 오류:', error)
+    } catch (error: any) {
+      console.error(`❌ [키워드 추출] 전체 오류: userEmail=${userEmail}`)
+      console.error(`   오류 타입: ${error.constructor.name}`)
+      console.error(`   오류 메시지: ${error.message}`)
+      console.error(`   오류 스택:`, error.stack)
+      if (error.response) {
+        console.error(`   API 응답 상태: ${error.response.status}`)
+        console.error(`   API 응답 데이터:`, JSON.stringify(error.response.data, null, 2))
+      }
       return []
     }
   }
