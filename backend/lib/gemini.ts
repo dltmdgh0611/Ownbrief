@@ -468,7 +468,16 @@ JSON 배열만 반환해주세요:`
     const keywords = JSON.parse(jsonText)
     console.log('✅ 키워드 추출 완료:', keywords)
 
-    return keywords.slice(0, 3) // 정확히 3개만
+    // 빈 키워드 필터링 (level1, level2, level3가 모두 비어있지 않은 것만)
+    const validKeywords = keywords.filter((k: any) => 
+      k && 
+      k.level1 && k.level1.trim() !== '' &&
+      k.level2 && k.level2.trim() !== '' &&
+      k.level3 && k.level3.trim() !== ''
+    )
+
+    console.log(`✅ ${validKeywords.length}개 유효한 키워드 (전체: ${keywords.length}개)`)
+    return validKeywords.slice(0, 3) // 정확히 3개만
   } catch (error) {
     console.error('❌ 키워드 추출 오류:', error)
     throw new Error('키워드 추출에 실패했습니다.')
