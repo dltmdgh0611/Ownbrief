@@ -849,9 +849,131 @@ ${dateStr} 브리핑을 시작하겠습니다.`
           await fetch(`/api/briefing/${todayBriefing.id}/play`, { method: 'POST' })
         }
         
+        // 오디오 엔진 초기화 및 이벤트 핸들러 설정
+        if (!audioEngineRef.current || audioEngineRef.current.audioContext.state === 'closed') {
+          initAudioEngine()
+        }
+        
+        audioEngineRef.current!.onPlaybackStart(() => {
+          console.log('🎵 재생 시작 이벤트 발생')
+          handleAudioStart()
+        })
+        
+        audioEngineRef.current!.onPlaybackEnd(() => {
+          console.log('🎵 재생 종료 이벤트 발생')
+          handleAudioEnd()
+        })
+        
+        audioEngineRef.current!.onTimeUpdate((currentTime: number, duration: number) => {
+          const currentSectionIndex = currentPlayingIndexRef.current
+          const currentSectionData = scriptSectionsRef.current.find(s => s.index === currentSectionIndex)
+          
+          if (currentSectionData && currentSectionData.paragraphs.length > 0) {
+            const paragraphIndex = currentSectionData.paragraphs.findIndex(
+              (p) => currentTime >= p.startTime && currentTime < p.endTime
+            )
+            
+            if (paragraphIndex >= 0) {
+              setCurrentParagraphIndex(paragraphIndex)
+            }
+          }
+        })
+        
+        // 오디오 컨텍스트 활성화
+        await ensureAudioContextActive()
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // 저장된 섹션 데이터를 기반으로 재생
+        const savedSectionData = Array.isArray(todayBriefing.sectionData) ? todayBriefing.sectionData : []
+        
+        if (savedSectionData.length > 0) {
+          // 첫 번째 섹션(인트로)부터 재생 시작
+          const firstSection = savedSectionData.find((s: any) => s.section === 'intro') || savedSectionData[0]
+          
+          if (firstSection && firstSection.script) {
+            try {
+              // 인트로 스크립트로 TTS 생성
+              const introScript = firstSection.script
+              const audioBuffer = await generateTTS(introScript)
+              
+              if (!audioBuffer) {
+                throw new Error('인트로 TTS 생성 실패')
+              }
+              
+              // 스크립트 구조 파싱
+              const scriptStructure = parseScriptStructure(introScript, audioBuffer.duration)
+              
+              setCurrentSection('intro')
+              setScriptSections([{
+                section: 'intro',
+                title: '인트로',
+                script: introScript,
+                paragraphs: scriptStructure.paragraphs,
+                sentences: scriptStructure.sentences,
+                index: 0,
+                duration: audioBuffer.duration
+              }])
+              setCurrentParagraphIndex(0)
+              
+              currentPlayingIndexRef.current = 0
+              setCurrentPlayingIndex(0)
+              
+              // 다음 섹션들 준비 (인덱스 1부터) - 저장된 스크립트 사용
+              for (let i = 1; i < sections.length; i++) {
+                const savedSection = savedSectionData.find((s: any) => s.section === sections[i].name)
+                if (savedSection && savedSection.script) {
+                  // 저장된 스크립트로 TTS 생성 및 준비
+                  const sectionScript = savedSection.script
+                  generateTTS(sectionScript).then(async (audioBuffer) => {
+                    if (audioBuffer && !isStopped) {
+                      if (isVoicePlayingRef.current) {
+                        // 현재 재생 중이면 대기열에 저장
+                        pendingNextRef.current = {
+                          index: i,
+                          section: sections[i].name,
+                          script: sectionScript,
+                          buffer: audioBuffer,
+                        }
+                      } else {
+                        // 재생 중이 아니면 즉시 재생
+                        const scriptStructure = parseScriptStructure(sectionScript, audioBuffer.duration)
+                        setScriptSections(prev => [...prev, {
+                          section: sections[i].name,
+                          title: sections[i].title,
+                          script: sectionScript,
+                          paragraphs: scriptStructure.paragraphs,
+                          sentences: scriptStructure.sentences,
+                          index: i,
+                          duration: audioBuffer.duration
+                        }])
+                      }
+                    }
+                  }).catch((error) => {
+                    console.error(`저장된 섹션 ${i} TTS 생성 실패:`, error)
+                  })
+                }
+              }
+              
+              console.log('🎤 저장된 브리핑 재생 시작')
+              isVoicePlayingRef.current = true
+              await audioEngineRef.current!.playBuffer(audioBuffer)
+              
+              setIsGenerating(false)
+              setIsPlaying(true)
+              return
+            } catch (error) {
+              console.error('저장된 브리핑 재생 오류:', error)
+              setError('저장된 브리핑 재생에 실패했습니다')
+              setIsGenerating(false)
+              setIsStopped(true)
+              return
+            }
+          }
+        }
+        
+        // 섹션 데이터가 없거나 스크립트가 없으면 새로 생성
+        console.log('⚠️ 저장된 섹션 데이터가 없어 새로 생성합니다.')
         setIsGenerating(false)
-        // TODO: 기존 오디오 파일 재생 로직 추가
-        return
       }
 
       // 오디오 엔진 초기화 (이미 위에서 초기화했으므로 상태 확인만)
