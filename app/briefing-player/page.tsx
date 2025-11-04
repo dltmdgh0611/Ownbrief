@@ -196,7 +196,7 @@ export default function BriefingPlayerPage() {
   }
 
   // 오디오 컨텍스트 활성화 (모바일 환경 대응)
-  const ensureAudioContextActive = async (): Promise<boolean> => {
+  const ensureAudioContextActive = useCallback(async (): Promise<boolean> => {
     try {
       if (!audioEngineRef.current) {
         initAudioEngine()
@@ -248,7 +248,7 @@ export default function BriefingPlayerPage() {
       // 에러가 발생해도 계속 진행 시도
       return false
     }
-  }
+  }, [])
   
   useEffect(() => {
     // 언마운트 시에만 정리
@@ -393,6 +393,9 @@ export default function BriefingPlayerPage() {
           } else {
             console.log(`🎵 TTS 생성 완료! 즉시 재생 시작: ${section.title}`)
             
+            // 오디오 컨텍스트 활성화 확인 (모바일 Chrome 대응)
+            await ensureAudioContextActive()
+            
             if (interludeAudioRef.current) {
               fadeOutInterlude()
             }
@@ -417,7 +420,22 @@ export default function BriefingPlayerPage() {
             setCurrentParagraphIndex(0)
             
             isVoicePlayingRef.current = true
-            await audioEngineRef.current!.playBuffer(audioBuffer)
+            
+            // 재생 시도 (재시도 로직 포함)
+            try {
+              await audioEngineRef.current!.playBuffer(audioBuffer)
+            } catch (playError: any) {
+              console.error('오디오 재생 실패:', playError)
+              // 모바일 Chrome에서 재시도
+              if (playError.name === 'InvalidStateError' || audioEngineRef.current!.audioContext.state !== 'running') {
+                console.log('🔄 오디오 컨텍스트 재활성화 후 재시도...')
+                await ensureAudioContextActive()
+                await new Promise(resolve => setTimeout(resolve, 200))
+                await audioEngineRef.current!.playBuffer(audioBuffer)
+              } else {
+                throw playError
+              }
+            }
           }
         }
       }).catch((error) => {
@@ -437,7 +455,7 @@ export default function BriefingPlayerPage() {
       setIsStopped(true)
       setIsGenerating(false)
     }
-  }, [isStopped, generateTTS, sections, toneOfVoice])
+  }, [isStopped, generateTTS, sections, toneOfVoice, ensureAudioContextActive])
 
   // Interlude 페이드아웃
   const fadeOutInterlude = useCallback(() => {
@@ -576,7 +594,25 @@ export default function BriefingPlayerPage() {
         setCurrentParagraphIndex(0)
 
         isVoicePlayingRef.current = true
-        await audioEngineRef.current!.playBuffer(next.buffer)
+        
+        // 오디오 컨텍스트 활성화 확인 (모바일 Chrome 대응)
+        await ensureAudioContextActive()
+        
+        // 재생 시도 (재시도 로직 포함)
+        try {
+          await audioEngineRef.current!.playBuffer(next.buffer)
+        } catch (playError: any) {
+          console.error('오디오 재생 실패:', playError)
+          // 모바일 Chrome에서 재시도
+          if (playError.name === 'InvalidStateError' || audioEngineRef.current!.audioContext.state !== 'running') {
+            console.log('🔄 오디오 컨텍스트 재활성화 후 재시도...')
+            await ensureAudioContextActive()
+            await new Promise(resolve => setTimeout(resolve, 200))
+            await audioEngineRef.current!.playBuffer(next.buffer)
+          } else {
+            throw playError
+          }
+        }
       } catch (e) {
         console.error('다음 섹션 자동 재생 실패:', e)
         setError('다음 섹션 재생에 실패했습니다')
@@ -585,8 +621,15 @@ export default function BriefingPlayerPage() {
       }
     } else {
       console.warn(`⚠️ pendingNext 불일치 또는 없음! nextIndex: ${nextIndex}, pendingNext: ${pendingNextRef.current ? pendingNextRef.current.index : 'null'}`)
+      
+      // 모바일 Chrome 대응: pendingNext가 없어도 다음 섹션 준비 시도
+      // 이는 TTS 생성이 완료되었지만 pendingNext가 설정되지 않은 경우 대응
+      if (nextIndex < sections.length && !isStopped) {
+        console.log(`🔄 pendingNext 없음 - 다음 섹션 ${nextIndex} 준비 시작`)
+        prepareNextSection(nextIndex)
+      }
     }
-  }, [isStopped, sections, fadeOutInterlude, fadeInInterlude])
+  }, [isStopped, sections, fadeOutInterlude, fadeInInterlude, prepareNextSection, ensureAudioContextActive])
 
   // 음성 재생 시작 핸들러
   const handleAudioStart = useCallback(async () => {
@@ -774,6 +817,11 @@ ${dateStr} 브리핑을 시작하겠습니다.`
   const handleGenerateBriefing = useCallback(async () => {
     try {
       console.log('🚀 브리핑 생성 시작')
+      
+      // 모바일 Chrome 대응: 사용자 인터랙션 직후 오디오 컨텍스트 활성화 (최우선)
+      initAudioEngine()
+      await ensureAudioContextActive()
+      
       setIsGenerating(true)
       setIsPlaying(true)
       setError('')
@@ -806,8 +854,10 @@ ${dateStr} 브리핑을 시작하겠습니다.`
         return
       }
 
-      // 오디오 엔진 초기화 (닫힌 경우 재생성)
-      initAudioEngine()
+      // 오디오 엔진 초기화 (이미 위에서 초기화했으므로 상태 확인만)
+      if (!audioEngineRef.current || audioEngineRef.current.audioContext.state === 'closed') {
+        initAudioEngine()
+      }
 
       // 이벤트 핸들러 설정
       console.log('🎵 이벤트 핸들러 설정')
@@ -856,7 +906,7 @@ ${dateStr} 브리핑을 시작하겠습니다.`
       setIsGenerating(false)
       setIsStopped(true)
     }
-  }, [handleAudioStart, handleAudioEnd, playInterlude, startFirstSection]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [handleAudioStart, handleAudioEnd, playInterlude, startFirstSection, checkTodayBriefing, ensureAudioContextActive]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 일시정지/재생 토글
   const togglePlayPause = async () => {
