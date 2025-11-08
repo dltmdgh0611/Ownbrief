@@ -18,20 +18,6 @@ export function useOnboarding() {
   const [error, setError] = useState<string | null>(null);
   const hasChecked = useRef(false); // 이미 체크했는지 추적
 
-  useEffect(() => {
-    // 로그인 직후 한 번만 체크
-    if (sessionStatus === 'authenticated' && session && !hasChecked.current) {
-      console.log('🔍 온보딩 상태 최초 체크 (1회만)');
-      checkOnboardingStatus();
-      hasChecked.current = true; // 체크 완료 표시
-    } else if (sessionStatus === 'unauthenticated') {
-      // 로그인 안 됨 - 로딩 완료 처리
-      setLoading(false);
-      setStatus(null);
-      hasChecked.current = false; // 로그아웃 시 초기화
-    }
-  }, [sessionStatus]); // session 제거! sessionStatus만 체크
-
   const checkOnboardingStatus = async () => {
     try {
       setLoading(true);
@@ -56,6 +42,29 @@ export function useOnboarding() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // 세션 상태가 로딩 중이면 아무것도 하지 않음
+    if (sessionStatus === 'loading') {
+      return;
+    }
+    
+    // 로그인 안 된 상태면 즉시 로딩 완료 처리하고 상태 초기화
+    if (sessionStatus === 'unauthenticated' || !session) {
+      console.log('🚫 로그아웃 상태 - 온보딩 체크 중단');
+      setLoading(false);
+      setStatus(null);
+      hasChecked.current = false; // 로그아웃 시 초기화
+      return;
+    }
+    
+    // 로그인 직후 한 번만 체크
+    if (sessionStatus === 'authenticated' && session && !hasChecked.current) {
+      console.log('🔍 온보딩 상태 최초 체크 (1회만)');
+      checkOnboardingStatus();
+      hasChecked.current = true; // 체크 완료 표시
+    }
+  }, [sessionStatus, session]); // session도 의존성에 추가
 
   const completeOnboarding = async (
     interests: string[],

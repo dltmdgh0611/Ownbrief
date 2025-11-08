@@ -323,30 +323,51 @@ JSON만 출력하세요:
         },
       })
 
-      if (!user || !user.userPersona) {
-        throw new Error('Persona not found')
+      if (!user) {
+        throw new Error('User not found')
       }
 
-      const currentPersona = user.userPersona.persona as unknown as Persona
+      // UserPersona가 없으면 생성
+      if (!user.userPersona) {
+        const persona: Persona = {
+          workStyle: (feedback.workStyle as any) || 'flexible',
+          interests: feedback.interests || [],
+          communicationStyle: 'hybrid',
+          preferredTime: 'morning',
+        }
 
-      // 피드백을 반영하여 페르소나 업데이트
-      const updatedPersona: Persona = {
-        ...currentPersona,
-        ...(feedback.workStyle && { workStyle: feedback.workStyle as any }),
-        ...(feedback.interests && { interests: feedback.interests }),
+        await prisma.userPersona.create({
+          data: {
+            userId: user.id,
+            persona: persona as any,
+            interests: feedback.interests || [],
+            workStyle: feedback.workStyle || null,
+            feedback: feedback as any,
+            confirmed: false,
+          },
+        })
+      } else {
+        // UserPersona가 있으면 업데이트
+        const currentPersona = user.userPersona.persona as unknown as Persona
+
+        const updatedPersona: Persona = {
+          ...currentPersona,
+          ...(feedback.workStyle && { workStyle: feedback.workStyle as any }),
+          ...(feedback.interests && { interests: feedback.interests }),
+        }
+
+        await prisma.userPersona.update({
+          where: { userId: user.id },
+          data: {
+            persona: updatedPersona as any,
+            interests: updatedPersona.interests,
+            workStyle: updatedPersona.workStyle,
+            feedback: feedback as any,
+            confirmed: false, // 피드백 제출 시에는 아직 확인 안 함
+            updatedAt: new Date(),
+          },
+        })
       }
-
-      await prisma.userPersona.update({
-        where: { userId: user.id },
-        data: {
-          persona: updatedPersona as any,
-          interests: updatedPersona.interests,
-          workStyle: updatedPersona.workStyle,
-          feedback: feedback as any,
-          confirmed: true,
-          updatedAt: new Date(),
-        },
-      })
 
       console.log('✅ Persona feedback submitted')
     } catch (error) {
@@ -362,19 +383,35 @@ JSON만 출력하세요:
     try {
       const user = await prisma.user.findUnique({
         where: { email: userEmail },
+        include: {
+          userPersona: true,
+        },
       })
 
       if (!user) {
         throw new Error('User not found')
       }
 
-      await prisma.userPersona.update({
-        where: { userId: user.id },
-        data: {
-          confirmed: true,
-          updatedAt: new Date(),
-        },
-      })
+      // UserPersona가 없으면 생성
+      if (!user.userPersona) {
+        await prisma.userPersona.create({
+          data: {
+            userId: user.id,
+            persona: {},
+            interests: [],
+            confirmed: true,
+          },
+        })
+      } else {
+        // UserPersona가 있으면 confirmed 업데이트
+        await prisma.userPersona.update({
+          where: { userId: user.id },
+          data: {
+            confirmed: true,
+            updatedAt: new Date(),
+          },
+        })
+      }
 
       console.log('✅ Persona confirmed')
     } catch (error) {

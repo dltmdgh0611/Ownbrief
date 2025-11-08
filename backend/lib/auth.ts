@@ -46,7 +46,9 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/youtube.readonly",
+          // 초기 로그인: 기본 프로필 정보만 요청
+          // Gmail, Calendar, YouTube는 온보딩/설정에서 별도로 추가
+          scope: "openid email profile",
           access_type: "offline",  // refresh token을 받기 위해 필수
           prompt: "consent",       // 항상 동의 화면 표시하여 refresh token 받기
         },
@@ -85,37 +87,7 @@ export const authOptions: NextAuthOptions = {
             })
             console.log('✅ Refresh token saved to DB for user:', user.id)
             
-            // Google 로그인 시 ConnectedService 자동 생성 (gmail, calendar, youtube)
-            if (account.provider === 'google' && user.id) {
-              const googleServices = ['gmail', 'calendar', 'youtube']
-              for (const serviceName of googleServices) {
-                try {
-                  await prisma.connectedService.upsert({
-                    where: {
-                      userId_serviceName: {
-                        userId: user.id,
-                        serviceName: serviceName,
-                      }
-                    },
-                  create: {
-                    userId: user.id,
-                    serviceName: serviceName,
-                    accessToken: account.access_token || '',
-                    refreshToken: account.refresh_token || '',
-                    expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
-                  },
-                  update: {
-                    accessToken: account.access_token || '',
-                    refreshToken: account.refresh_token || '',
-                    expiresAt: account.expires_at ? new Date(account.expires_at * 1000) : null,
-                  }
-                  })
-                  console.log(`✅ ConnectedService created for ${serviceName}`)
-                } catch (error) {
-                  console.error(`❌ Failed to create ConnectedService for ${serviceName}:`, error)
-                }
-              }
-            }
+            // Note: ConnectedService는 온보딩 시 개별적으로 연결됩니다.
           } catch (error) {
             console.error('❌ Failed to save refresh token to DB:', error)
           }

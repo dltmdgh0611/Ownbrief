@@ -59,7 +59,7 @@ export default function WelcomePage() {
       {/* 콘텐츠 */}
       <div className="text-center fade-in py-8 relative z-10">
         {/* 로고 */}
-        <div className="w-28 h-28 bg-gradient-to-br from-brand to-brand-light rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl">
+        <div className="w-28 h-28 liquid-glass rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl">
           <Mic2 className="w-14 h-14 text-white" />
         </div>
         
@@ -74,7 +74,7 @@ export default function WelcomePage() {
 
         {/* Google 로그인 버튼 - 리퀴드 글래스 스타일 */}
         <button
-          onClick={() => signIn('google', { callbackUrl: '/' })}
+          onClick={() => signIn('google', { callbackUrl: '/onboarding' })}
           className="liquid-glass-button py-4 px-8 rounded-xl flex items-center justify-center space-x-3 mx-auto"
         >
           <svg className="w-6 h-6" viewBox="0 0 24 24">
