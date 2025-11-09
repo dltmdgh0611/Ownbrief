@@ -551,7 +551,9 @@ export default function SettingsPage() {
                           <div className="flex items-center space-x-2">
                             <h3 className="font-semibold text-white">{config.name}</h3>
                             {needsReauth && (
-                              <AlertCircle className="w-4 h-4 text-yellow-400" title="재인증 필요" />
+                              <span title="재인증 필요">
+                                <AlertCircle className="w-4 h-4 text-yellow-400" />
+                              </span>
                             )}
                           </div>
                           <p className="text-sm text-white/70">
@@ -642,7 +644,9 @@ export default function SettingsPage() {
                                   {metadata?.workspaceName || 'Notion Workspace'}
                                 </p>
                                 {needsReauth && (
-                                  <AlertCircle className="w-4 h-4 text-yellow-400" title="재인증 필요" />
+                                  <span title="재인증 필요">
+                                    <AlertCircle className="w-4 h-4 text-yellow-400" />
+                                  </span>
                                 )}
                               </div>
                               <p className="text-xs text-white/70">
