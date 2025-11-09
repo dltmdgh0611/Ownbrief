@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams
     const service = searchParams.get('service')
+    const returnTo = searchParams.get('returnTo') || '/onboarding' // 기본값은 온보딩
 
     if (!service || !['gmail', 'calendar', 'youtube'].includes(service)) {
       return NextResponse.json(
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
       scope: fullScope,
       access_type: 'offline',
       prompt: 'consent',
-      state: JSON.stringify({ service, returnTo: '/onboarding' }), // 서비스 정보와 리턴 URL 포함
+      state: JSON.stringify({ service, returnTo }), // 서비스 정보와 리턴 URL 포함
     })
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`

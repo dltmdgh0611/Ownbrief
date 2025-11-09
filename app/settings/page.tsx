@@ -109,6 +109,7 @@ export default function SettingsPage() {
     // URL 파라미터에서 성공/에러 메시지 처리
     const urlParams = new URLSearchParams(window.location.search)
     const success = urlParams.get('success')
+    const connected = urlParams.get('connected')
 
     if (success) {
       switch (success) {
@@ -121,6 +122,16 @@ export default function SettingsPage() {
       }
       setTimeout(() => setMessage(''), 5000)
       window.history.replaceState({}, document.title, window.location.pathname)
+    }
+
+    if (connected) {
+      const config = SERVICE_CONFIG[connected as keyof typeof SERVICE_CONFIG]
+      if (config) {
+        setMessage(`${config.name} 연동이 완료되었습니다!`)
+        loadConnectedServices()
+        setTimeout(() => setMessage(''), 5000)
+        window.history.replaceState({}, document.title, window.location.pathname)
+      }
     }
   }, [])
 
@@ -241,8 +252,8 @@ export default function SettingsPage() {
         const notionAuthUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(`${window.location.origin}/api/auth/notion/callback`)}`
         window.location.href = notionAuthUrl
       } else if (config.connectionType === 'google') {
-        // Google OAuth 연결
-        const response = await fetch(`/api/auth/connect-service?service=${serviceName}`)
+        // Google OAuth 연결 (설정 페이지로 돌아오기)
+        const response = await fetch(`/api/auth/connect-service?service=${serviceName}&returnTo=/settings`)
         const data = await response.json()
         if (data.authUrl) {
           window.location.href = data.authUrl
@@ -756,15 +767,15 @@ export default function SettingsPage() {
 
       {/* 워크스페이스 추가 모달 */}
       {showAddWorkspaceModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddWorkspaceModal(false)}>
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Notion 워크스페이스 추가</h3>
-            <p className="text-sm text-gray-600 mb-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAddWorkspaceModal(false)}>
+          <div className="liquid-glass-card p-6 max-w-md w-full rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-white mb-2">Notion 워크스페이스 추가</h3>
+            <p className="text-sm text-white/70 mb-4">
               Notion Internal Integration Token을 입력하세요
             </p>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-white/80 mb-2">
                 Integration Token
               </label>
               <input
@@ -772,15 +783,15 @@ export default function SettingsPage() {
                 value={workspaceToken}
                 onChange={(e) => setWorkspaceToken(e.target.value)}
                 placeholder="secret_xxxxxxxxxxxx"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-transparent"
+                className="w-full px-4 py-3 liquid-glass rounded-lg text-white placeholder:text-white/40 focus:ring-2 focus:ring-white/30 focus:outline-none transition-all disabled:opacity-50"
                 disabled={isAddingWorkspace}
               />
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-white/60 mt-2">
                 <a 
                   href="https://www.notion.so/my-integrations" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-brand hover:underline"
+                  className="text-white/90 hover:text-white underline"
                 >
                   Notion 설정
                 </a>에서 Internal Integration을 생성하고 토큰을 복사하세요.
@@ -788,8 +799,8 @@ export default function SettingsPage() {
             </div>
 
             {message && (
-              <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">
-                {message}
+              <div className="mb-4 p-3 liquid-glass rounded-lg border border-red-400/30 text-sm">
+                <p className="text-red-200">{message}</p>
               </div>
             )}
 
@@ -801,14 +812,14 @@ export default function SettingsPage() {
                   setMessage('')
                 }}
                 disabled={isAddingWorkspace}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-3 liquid-glass rounded-xl font-medium text-white hover:bg-white/10 transition-all disabled:opacity-50"
               >
                 취소
               </button>
               <button
                 onClick={handleAddWorkspace}
                 disabled={isAddingWorkspace || !workspaceToken.trim()}
-                className="flex-1 px-4 py-2 bg-brand hover:bg-brand/90 text-white rounded-lg font-medium flex items-center justify-center space-x-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 liquid-glass-button rounded-xl font-medium text-white flex items-center justify-center space-x-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isAddingWorkspace ? (
                   <>

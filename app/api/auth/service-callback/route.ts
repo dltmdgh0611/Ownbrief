@@ -24,14 +24,14 @@ export async function GET(request: NextRequest) {
     }
 
     // state에서 서비스 정보 추출
-    let serviceInfo: { service: string; returnTo: string }
+    let serviceInfo: { service: string; returnTo?: string }
     try {
       serviceInfo = JSON.parse(state)
     } catch {
       return NextResponse.redirect(`${baseUrl}/onboarding?error=invalid_state`)
     }
 
-    const { service } = serviceInfo
+    const { service, returnTo = '/onboarding' } = serviceInfo
 
     if (!service || !['gmail', 'calendar', 'youtube'].includes(service)) {
       return NextResponse.redirect(`${baseUrl}/onboarding?error=invalid_service`)
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
               window.opener.postMessage({ type: 'SERVICE_CONNECTED', service: '${service}' }, window.location.origin);
               window.close();
             } else {
-              window.location.href = '${baseUrl}/onboarding?connected=${service}';
+              window.location.href = '${baseUrl}${returnTo}?connected=${service}';
             }
           </script>
           <p>연결이 완료되었습니다. 이 창을 닫아주세요.</p>
