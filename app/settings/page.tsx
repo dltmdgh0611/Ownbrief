@@ -242,8 +242,13 @@ export default function SettingsPage() {
         window.location.href = notionAuthUrl
       } else if (config.connectionType === 'google') {
         // Google OAuth 연결
-        const googleAuthUrl = `/api/auth/google?services=${serviceName}`
-        window.location.href = googleAuthUrl
+        const response = await fetch(`/api/auth/connect-service?service=${serviceName}`)
+        const data = await response.json()
+        if (data.authUrl) {
+          window.location.href = data.authUrl
+        } else {
+          throw new Error(data.error || 'Failed to get auth URL')
+        }
       }
     } catch (error: any) {
       console.error('Connect service error:', error)
