@@ -409,13 +409,38 @@ export class GmailClient {
         return null
       }
 
-      // 먼저 ConnectedService에서 찾기
-      const googleService = user.connectedServices.find(s => s.serviceName === 'google')
-      if (googleService?.accessToken) {
-        return googleService.accessToken
+      // 먼저 ConnectedService에서 Gmail 토큰 찾기
+      const gmailService = user.connectedServices.find(s => s.serviceName === 'gmail')
+      if (gmailService?.accessToken && gmailService.refreshToken) {
+        // 토큰 만료 확인
+        if (gmailService.expiresAt && gmailService.expiresAt > new Date()) {
+          return gmailService.accessToken
+        }
+
+        // 토큰이 만료되었으면 갱신
+        console.log('🔄 Gmail: Refreshing expired access token from ConnectedService...')
+        try {
+          const refreshedToken = await this.refreshAccessToken(gmailService.refreshToken)
+          
+          // ConnectedService 업데이트
+          await prisma.connectedService.update({
+            where: { id: gmailService.id },
+            data: {
+              accessToken: refreshedToken.access_token,
+              expiresAt: new Date(Date.now() + refreshedToken.expires_in * 1000),
+              refreshToken: refreshedToken.refresh_token || gmailService.refreshToken,
+            },
+          })
+          
+          console.log('✅ Gmail: Access token refreshed successfully')
+          return refreshedToken.access_token
+        } catch (error) {
+          console.error('❌ Gmail: Failed to refresh access token:', error)
+          return null
+        }
       }
 
-      // Account 테이블에서 찾기
+      // Account 테이블에서 찾기 (fallback - 주로 초기 로그인 시)
       const googleAccount = user.accounts.find(a => a.provider === 'google')
       if (googleAccount?.access_token) {
         // 토큰 만료 확인
@@ -426,11 +451,11 @@ export class GmailClient {
 
         // 토큰이 만료되었고 refresh_token이 있으면 갱신
         if (googleAccount.refresh_token) {
-          console.log('🔄 Gmail: Refreshing expired access token...')
+          console.log('🔄 Gmail: Refreshing expired access token from Account...')
           try {
             const refreshedToken = await this.refreshAccessToken(googleAccount.refresh_token)
             
-            // DB 업데이트
+            // Account 업데이트
             await prisma.account.update({
               where: { id: googleAccount.id },
               data: {
@@ -439,6 +464,18 @@ export class GmailClient {
                 refresh_token: refreshedToken.refresh_token || googleAccount.refresh_token,
               },
             })
+            
+            // ConnectedService도 업데이트
+            if (gmailService) {
+              await prisma.connectedService.update({
+                where: { id: gmailService.id },
+                data: {
+                  accessToken: refreshedToken.access_token,
+                  expiresAt: new Date(Date.now() + refreshedToken.expires_in * 1000),
+                  refreshToken: refreshedToken.refresh_token || googleAccount.refresh_token,
+                },
+              })
+            }
             
             console.log('✅ Gmail: Access token refreshed successfully')
             return refreshedToken.access_token
@@ -451,7 +488,7 @@ export class GmailClient {
 
       return null
     } catch (error) {
-      console.error('Error getting access token:', error)
+      console.error('Error getting Gmail access token:', error)
       return null
     }
   }

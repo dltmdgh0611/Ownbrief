@@ -9,6 +9,7 @@ import { authOptions } from '@/backend/lib/auth'
 import { UserService } from '@/backend/services/user.service'
 import { PersonaService } from '@/backend/services/persona.service'
 import { prisma } from '@/backend/lib/prisma'
+import { refreshConnectedServiceTokens } from '@/backend/lib/token-refresh'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,11 +20,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // 설정 탭에 들어올 때 만료된 토큰 자동 갱신
+    console.log('🔄 연결된 서비스 토큰 확인 및 갱신 시작...')
+    await refreshConnectedServiceTokens(session.user.email)
+
     const userSettings = await UserService.getUserSettings(session.user.email)
     const persona = await PersonaService.getPersona(session.user.email)
     // const isAdmin = await UserService.isAdmin(session.user.email) // 임시로 주석 처리
 
-    // 연결된 서비스 정보 가져오기
+    // 연결된 서비스 정보 가져오기 (갱신 후)
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: {
@@ -33,6 +38,7 @@ export async function GET(request: NextRequest) {
             serviceName: true,
             accessToken: true,
             expiresAt: true,
+            enabled: true, // 토큰 갱신 상태 확인용
             metadata: true,
             createdAt: true,
             updatedAt: true,

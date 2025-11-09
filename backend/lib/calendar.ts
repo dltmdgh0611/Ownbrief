@@ -264,13 +264,38 @@ export class CalendarClient {
         return null
       }
 
-      // 먼저 ConnectedService에서 찾기
-      const googleService = user.connectedServices.find(s => s.serviceName === 'google')
-      if (googleService?.accessToken) {
-        return googleService.accessToken
+      // 먼저 ConnectedService에서 Calendar 토큰 찾기
+      const calendarService = user.connectedServices.find(s => s.serviceName === 'calendar')
+      if (calendarService?.accessToken && calendarService.refreshToken) {
+        // 토큰 만료 확인
+        if (calendarService.expiresAt && calendarService.expiresAt > new Date()) {
+          return calendarService.accessToken
+        }
+
+        // 토큰이 만료되었으면 갱신
+        console.log('🔄 Calendar: Refreshing expired access token from ConnectedService...')
+        try {
+          const refreshedToken = await this.refreshAccessToken(calendarService.refreshToken)
+          
+          // ConnectedService 업데이트
+          await prisma.connectedService.update({
+            where: { id: calendarService.id },
+            data: {
+              accessToken: refreshedToken.access_token,
+              expiresAt: new Date(Date.now() + refreshedToken.expires_in * 1000),
+              refreshToken: refreshedToken.refresh_token || calendarService.refreshToken,
+            },
+          })
+          
+          console.log('✅ Calendar: Access token refreshed successfully')
+          return refreshedToken.access_token
+        } catch (error) {
+          console.error('❌ Calendar: Failed to refresh access token:', error)
+          return null
+        }
       }
 
-      // Account 테이블에서 찾기
+      // Account 테이블에서 찾기 (fallback - 주로 초기 로그인 시)
       const googleAccount = user.accounts.find(a => a.provider === 'google')
       if (googleAccount?.access_token) {
         // 토큰 만료 확인
@@ -281,11 +306,11 @@ export class CalendarClient {
 
         // 토큰이 만료되었고 refresh_token이 있으면 갱신
         if (googleAccount.refresh_token) {
-          console.log('🔄 Calendar: Refreshing expired access token...')
+          console.log('🔄 Calendar: Refreshing expired access token from Account...')
           try {
             const refreshedToken = await this.refreshAccessToken(googleAccount.refresh_token)
             
-            // DB 업데이트
+            // Account 업데이트
             await prisma.account.update({
               where: { id: googleAccount.id },
               data: {
@@ -294,6 +319,18 @@ export class CalendarClient {
                 refresh_token: refreshedToken.refresh_token || googleAccount.refresh_token,
               },
             })
+            
+            // ConnectedService도 업데이트
+            if (calendarService) {
+              await prisma.connectedService.update({
+                where: { id: calendarService.id },
+                data: {
+                  accessToken: refreshedToken.access_token,
+                  expiresAt: new Date(Date.now() + refreshedToken.expires_in * 1000),
+                  refreshToken: refreshedToken.refresh_token || googleAccount.refresh_token,
+                },
+              })
+            }
             
             console.log('✅ Calendar: Access token refreshed successfully')
             return refreshedToken.access_token
@@ -306,7 +343,7 @@ export class CalendarClient {
 
       return null
     } catch (error) {
-      console.error('Error getting access token:', error)
+      console.error('Error getting Calendar access token:', error)
       return null
     }
   }

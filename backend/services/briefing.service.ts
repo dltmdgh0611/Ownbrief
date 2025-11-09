@@ -6,6 +6,7 @@ import { NotionClient } from '../lib/notion'
 import { YouTubeClient } from '../lib/youtube'
 import { PersonaService, Persona } from './persona.service'
 import { createGeminiClient } from '../lib/gemini'
+import { refreshConnectedServiceTokens } from '../lib/token-refresh'
 
 const genAI = createGeminiClient()
 
@@ -33,6 +34,10 @@ export class BriefingService {
   static async *generateStreamingBriefing(userEmail: string): AsyncGenerator<BriefingStreamEvent> {
     try {
       console.log(`🎙️ Starting real-time briefing generation for: ${userEmail}`)
+
+      // 0. 브리핑 생성 전 토큰 확인 및 갱신
+      console.log('🔄 브리핑 생성 전 토큰 확인 및 갱신...')
+      await refreshConnectedServiceTokens(userEmail)
 
       // 1. 입장 멘트 및 배경음악 시작
       yield { type: 'intro', data: '브리핑을 시작합니다...' }

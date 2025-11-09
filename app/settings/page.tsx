@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import React from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Settings, LogOut, Trash2, Loader2, ArrowLeft, RefreshCw, User, Sparkles, MessageSquare, FileText, CheckCircle, XCircle, Mail, Calendar, Youtube, ChevronRight } from 'lucide-react'
+import { Settings, LogOut, Trash2, Loader2, ArrowLeft, RefreshCw, User, Sparkles, MessageSquare, FileText, CheckCircle, XCircle, Mail, Calendar, Youtube, ChevronRight, AlertCircle } from 'lucide-react'
 import Prism from '@/components/Prism'
 
 interface UserPersona {
@@ -157,18 +157,28 @@ export default function SettingsPage() {
   // 연결 상태 확인 함수
   const isServiceConnected = (serviceName: string): boolean => {
     const service = connectedServices.find(s => s.serviceName === serviceName)
-    if (service && service.accessToken) {
-      if (service.expiresAt) {
-        return new Date(service.expiresAt) > new Date()
-      }
-      return true
+    if (!service || !service.accessToken) {
+      return false
     }
-    return false
+    
+    // enabled 필드가 false면 토큰 갱신 실패로 재인증 필요
+    if (service.enabled === false) {
+      return false
+    }
+    
+    // expiresAt이 있으면 만료 시간 확인
+    if (service.expiresAt) {
+      return new Date(service.expiresAt) > new Date()
+    }
+    
+    // expiresAt이 없으면 (long-lived token) true 반환
+    return true
   }
 
-  // 서비스 활성화 상태 확인 (연결되어 있으면 활성화)
+  // 서비스 활성화 상태 확인 (연결되어 있고 enabled가 true면 활성화)
   const isServiceEnabled = (serviceName: string): boolean => {
-    return isServiceConnected(serviceName)
+    const service = connectedServices.find(s => s.serviceName === serviceName)
+    return service?.enabled !== false && isServiceConnected(serviceName)
   }
 
   // 토글 상태 변경
@@ -522,13 +532,15 @@ export default function SettingsPage() {
                 const isConnected = isServiceConnected(key)
                 const isEnabled = isServiceEnabled(key)
                 const isUpdating = updatingServices.has(key)
+                const service = connectedServices.find(s => s.serviceName === key)
+                const needsReauth = service && service.enabled === false
 
                 return (
                   <div
                     key={key}
                     className={`p-4 rounded-lg transition-all ${
                       isEnabled ? 'liquid-glass-toggle active' : 'liquid-glass'
-                    }`}
+                    } ${needsReauth ? 'border border-yellow-400/50' : ''}`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
@@ -536,18 +548,27 @@ export default function SettingsPage() {
                           <Icon className={`w-5 h-5 text-white`} />
                         </div>
                         <div>
-                          <h3 className="font-semibold text-white">{config.name}</h3>
-                          <p className="text-sm text-white/70">{config.description}</p>
+                          <div className="flex items-center space-x-2">
+                            <h3 className="font-semibold text-white">{config.name}</h3>
+                            {needsReauth && (
+                              <AlertCircle className="w-4 h-4 text-yellow-400" title="재인증 필요" />
+                            )}
+                          </div>
+                          <p className="text-sm text-white/70">
+                            {needsReauth ? '재인증이 필요합니다' : config.description}
+                          </p>
                         </div>
                       </div>
 
                       <div className="flex items-center space-x-3">
-                        {!isConnected ? (
+                        {!isConnected || needsReauth ? (
                           <button
                             onClick={() => handleConnectService(key)}
-                            className="liquid-glass-button px-4 py-2 rounded-lg font-medium flex items-center space-x-2"
+                            className={`liquid-glass-button px-4 py-2 rounded-lg font-medium flex items-center space-x-2 ${
+                              needsReauth ? 'border border-yellow-400/50' : ''
+                            }`}
                           >
-                            <span>연결하기</span>
+                            <span>{needsReauth ? '재연결' : '연결하기'}</span>
                             <ChevronRight className="w-4 h-4" />
                           </button>
                         ) : (
@@ -605,37 +626,55 @@ export default function SettingsPage() {
                       const metadata = workspace.metadata as any
                       const isUpdating = updatingServices.has(workspace.serviceName)
                       const isEnabled = isServiceEnabled(workspace.serviceName)
+                      const needsReauth = workspace.enabled === false
 
                       return (
                         <div
                           key={workspace.id}
                           className={`p-3 rounded-lg transition-all ${
                             isEnabled ? 'liquid-glass-toggle active' : 'liquid-glass'
-                          }`}
+                          } ${needsReauth ? 'border border-yellow-400/50' : ''}`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
-                              <p className="font-medium text-white">
-                                {metadata?.workspaceName || 'Notion Workspace'}
-                              </p>
+                              <div className="flex items-center space-x-2">
+                                <p className="font-medium text-white">
+                                  {metadata?.workspaceName || 'Notion Workspace'}
+                                </p>
+                                {needsReauth && (
+                                  <AlertCircle className="w-4 h-4 text-yellow-400" title="재인증 필요" />
+                                )}
+                              </div>
                               <p className="text-xs text-white/70">
-                                {metadata?.type === 'oauth' ? 'OAuth 연결' : '토큰 연결'}
+                                {needsReauth ? '재인증이 필요합니다' : (metadata?.type === 'oauth' ? 'OAuth 연결' : '토큰 연결')}
                               </p>
                             </div>
 
                             <div className="flex items-center space-x-3">
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  className="sr-only peer"
-                                  checked={isEnabled}
-                                  onChange={(e) => !isUpdating && handleToggleService(workspace.serviceName, e.target.checked)}
-                                  disabled={isUpdating}
-                                />
-                                <div className="w-11 h-6 bg-white/20 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-white/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-white/30 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-white/40"></div>
-                              </label>
-                              {isUpdating && (
-                                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                              {needsReauth ? (
+                                <button
+                                  onClick={() => handleConnectService('notion')}
+                                  className="liquid-glass-button px-3 py-1.5 rounded-lg text-sm font-medium flex items-center space-x-1 border border-yellow-400/50"
+                                >
+                                  <span>재연결</span>
+                                  <ChevronRight className="w-3 h-3" />
+                                </button>
+                              ) : (
+                                <>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      className="sr-only peer"
+                                      checked={isEnabled}
+                                      onChange={(e) => !isUpdating && handleToggleService(workspace.serviceName, e.target.checked)}
+                                      disabled={isUpdating}
+                                    />
+                                    <div className="w-11 h-6 bg-white/20 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-white/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-white/30 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-white/40"></div>
+                                  </label>
+                                  {isUpdating && (
+                                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>

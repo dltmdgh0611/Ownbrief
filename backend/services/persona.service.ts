@@ -32,6 +32,11 @@ export class PersonaService {
     try {
       console.log(`🤖 Generating persona for user: ${userEmail}`)
 
+      // 페르소나 생성 전 토큰 확인 및 갱신
+      console.log('🔄 페르소나 생성 전 토큰 확인 및 갱신...')
+      const { refreshConnectedServiceTokens } = await import('../lib/token-refresh')
+      await refreshConnectedServiceTokens(userEmail)
+
       // 모든 서비스에서 데이터 병렬 수집
       const [calendarAnalysis, gmailAnalysis, youtubeAnalysis, slackAnalysis, notionAnalysis] = await Promise.allSettled([
         CalendarClient.analyzeRecentEvents(userEmail),
