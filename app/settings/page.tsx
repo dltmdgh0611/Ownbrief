@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import React from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Settings, LogOut, Trash2, Loader2, ArrowLeft, RefreshCw, User, Sparkles, MessageSquare, FileText, CheckCircle, XCircle, Mail, Calendar, Youtube, ChevronRight, AlertCircle } from 'lucide-react'
+import { Settings, LogOut, Trash2, Loader2, ArrowLeft, RefreshCw, User, Sparkles, MessageSquare, FileText, CheckCircle, XCircle, Mail, Calendar, Youtube, ChevronRight, AlertCircle, ThumbsUp } from 'lucide-react'
 import Prism from '@/components/Prism'
 
 interface UserPersona {
@@ -77,6 +77,19 @@ const SERVICE_CONFIG = {
   }
 }
 
+const SURVEY_OPTIONS = [
+  { value: 'mail', label: '메일' },
+  { value: 'calendar', label: '캘린더' },
+  { value: 'slack', label: '슬랙' },
+  { value: 'notion', label: '노션' },
+  { value: 'trend', label: '트렌드 데이터' }
+] as const
+
+const SURVEY_LABEL_MAP = SURVEY_OPTIONS.reduce<Record<string, string>>((acc, option) => {
+  acc[option.value] = option.label
+  return acc
+}, {})
+
 export default function SettingsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -91,6 +104,14 @@ export default function SettingsPage() {
   const [showAddWorkspaceModal, setShowAddWorkspaceModal] = useState(false)
   const [workspaceToken, setWorkspaceToken] = useState('')
   const [isAddingWorkspace, setIsAddingWorkspace] = useState(false)
+  const [showSurveyModal, setShowSurveyModal] = useState(false)
+  const [surveySelection, setSurveySelection] = useState<string | null>(null)
+  const [surveyFeedback, setSurveyFeedback] = useState('')
+  const [surveyError, setSurveyError] = useState('')
+  const [isSubmittingSurvey, setIsSubmittingSurvey] = useState(false)
+  const [isLoadingSurvey, setIsLoadingSurvey] = useState(false)
+  const [surveySubmittedAt, setSurveySubmittedAt] = useState<string | null>(null)
+  const isSurveyReadyToSubmit = Boolean(surveySelection && surveyFeedback.trim().length > 0)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -102,6 +123,7 @@ export default function SettingsPage() {
     if (session) {
       loadPersona()
       loadConnectedServices()
+      loadSurveyResponse()
     }
   }, [session])
 
@@ -162,6 +184,36 @@ export default function SettingsPage() {
       console.error('Failed to load connected services:', error)
     } finally {
       setIsLoadingServices(false)
+    }
+  }
+
+  const loadSurveyResponse = async () => {
+    try {
+      setIsLoadingSurvey(true)
+      const response = await fetch('/api/user/settings/survey')
+      if (response.ok) {
+        const data = await response.json()
+        const survey = data?.survey
+        if (survey) {
+          setSurveySelection(survey.preferredBriefing || null)
+          setSurveyFeedback(survey.feedback || '')
+          setSurveySubmittedAt(survey.submittedAt || null)
+        } else {
+          setSurveySelection(null)
+          setSurveyFeedback('')
+          setSurveySubmittedAt(null)
+        }
+      } else if (response.status === 404) {
+        setSurveySelection(null)
+        setSurveyFeedback('')
+        setSurveySubmittedAt(null)
+      } else {
+        throw new Error('Failed to load survey response')
+      }
+    } catch (error) {
+      console.error('Failed to load survey response:', error)
+    } finally {
+      setIsLoadingSurvey(false)
     }
   }
 
@@ -302,6 +354,57 @@ export default function SettingsPage() {
       setMessage(error.message)
     } finally {
       setIsAddingWorkspace(false)
+    }
+  }
+
+  const handleOpenSurveyModal = () => {
+    setSurveyError('')
+    setShowSurveyModal(true)
+  }
+
+  const handleCloseSurveyModal = () => {
+    setShowSurveyModal(false)
+    setSurveyError('')
+  }
+
+  const handleSubmitSurvey = async (event?: React.FormEvent<HTMLFormElement>) => {
+    event?.preventDefault()
+
+    if (!surveySelection || !surveyFeedback.trim()) {
+      setSurveyError('가장 도움이 된 브리핑과 후기를 모두 작성해주세요.')
+      return
+    }
+
+    try {
+      setIsSubmittingSurvey(true)
+      setSurveyError('')
+
+      const response = await fetch('/api/user/settings/survey', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          preferredBriefing: surveySelection,
+          feedback: surveyFeedback.trim()
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || '설문 제출에 실패했습니다.')
+      }
+
+      setMessage('설문이 성공적으로 제출되었습니다! 소중한 의견에 감사드립니다.')
+      await loadSurveyResponse()
+      setShowSurveyModal(false)
+      setTimeout(() => setMessage(''), 3000)
+    } catch (error: any) {
+      console.error('Submit survey error:', error)
+      setSurveyError(error.message || '설문 제출 중 문제가 발생했습니다. 다시 시도해주세요.')
+    } finally {
+      setIsSubmittingSurvey(false)
     }
   }
 
@@ -454,6 +557,54 @@ export default function SettingsPage() {
             }`}>{message}</p>
           </div>
         )}
+
+        {/* 사용자 설문 카드 */}
+        <div className="liquid-glass-card p-6 mb-6 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 liquid-glass rounded-full flex items-center justify-center">
+                <ThumbsUp className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">사용자 설문</h2>
+                <p className="text-sm text-white/70">가장 도움이 된 브리핑을 알려주세요</p>
+              </div>
+            </div>
+            <button
+              onClick={handleOpenSurveyModal}
+              disabled={isLoadingSurvey}
+              className="liquid-glass-button px-4 py-2 rounded-lg font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {surveySubmittedAt ? '설문 다시 작성하기' : '설문 참여하기'}
+            </button>
+          </div>
+
+          <div className="mt-4 text-sm text-white/70">
+            {isLoadingSurvey ? (
+              <p>설문 정보를 불러오는 중입니다...</p>
+            ) : surveySubmittedAt ? (
+              <div className="space-y-1">
+                {surveySelection && (
+                  <p>
+                    최근 응답:{' '}
+                    <span className="text-white font-medium">{SURVEY_LABEL_MAP[surveySelection] || '-'}</span>
+                  </p>
+                )}
+                <p>
+                  제출일:{' '}
+                  <span className="text-white">
+                    {new Date(surveySubmittedAt).toLocaleString('ko-KR', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short'
+                    })}
+                  </span>
+                </p>
+              </div>
+            ) : (
+              <p>설문에 참여하고 OwnBrief가 더 나은 브리핑을 준비할 수 있도록 도와주세요.</p>
+            )}
+          </div>
+        </div>
 
         {/* 페르소나 섹션 */}
         <div className="liquid-glass-card p-6 mb-6 rounded-xl">
@@ -764,6 +915,112 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* 설문 모달 */}
+      {showSurveyModal && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={handleCloseSurveyModal}
+        >
+          <div
+            className="liquid-glass-card p-6 max-w-md w-full rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <form onSubmit={handleSubmitSurvey} className="space-y-5">
+              <div>
+                <h3 className="text-xl font-bold text-white mb-1">OwnBrief 설문</h3>
+                <p className="text-sm text-white/70">
+                  가장 도움이 된 브리핑과 느낀 점을 알려주세요. 더 좋은 경험을 준비하는 데 큰 도움이 됩니다.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-white/80">가장 도움이 된 브리핑</p>
+                <div className="space-y-2">
+                  {SURVEY_OPTIONS.map((option) => {
+                    const isSelected = surveySelection === option.value
+                    return (
+                      <label
+                        key={option.value}
+                        className={`block px-4 py-3 rounded-xl liquid-glass cursor-pointer transition-all ${
+                          isSelected ? 'bg-white/10 ring-2 ring-white/40' : 'hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between space-x-4">
+                          <div className="flex items-center space-x-3">
+                            <span className="text-white font-medium">{option.label}</span>
+                          </div>
+                          <span
+                            className={`w-5 h-5 rounded-full border-2 ${
+                              isSelected ? 'border-white bg-white' : 'border-white/40'
+                            }`}
+                          />
+                        </div>
+                        <input
+                          type="radio"
+                          name="surveyPreferredBriefing"
+                          value={option.value}
+                          className="sr-only"
+                          checked={isSelected}
+                          onChange={() => setSurveySelection(option.value)}
+                        />
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white/80 mb-2">
+                  기타 후기
+                </label>
+                <textarea
+                  value={surveyFeedback}
+                  onChange={(e) => setSurveyFeedback(e.target.value)}
+                  rows={4}
+                  maxLength={1000}
+                  placeholder="어떤 점이 가장 도움이 되었는지 솔직한 의견을 들려주세요."
+                  className="w-full px-4 py-3 liquid-glass rounded-xl text-white placeholder:text-white/40 focus:ring-2 focus:ring-white/30 focus:outline-none transition-all resize-none"
+                />
+                <p className="text-xs text-white/60 mt-2">
+                  최소 한 글자 이상 작성해야 제출할 수 있어요. (최대 1000자)
+                </p>
+              </div>
+
+              {surveyError && (
+                <div className="p-3 rounded-lg liquid-glass border border-red-400/30 text-sm text-red-100">
+                  {surveyError}
+                </div>
+              )}
+
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={handleCloseSurveyModal}
+                  disabled={isSubmittingSurvey}
+                  className="flex-1 px-4 py-3 liquid-glass rounded-xl font-medium text-white hover:bg-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={!isSurveyReadyToSubmit || isSubmittingSurvey}
+                  className="flex-1 px-4 py-3 liquid-glass-button rounded-xl font-semibold text-white flex items-center justify-center space-x-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmittingSurvey ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>제출 중...</span>
+                    </>
+                  ) : (
+                    <span>제출하기</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* 워크스페이스 추가 모달 */}
       {showAddWorkspaceModal && (

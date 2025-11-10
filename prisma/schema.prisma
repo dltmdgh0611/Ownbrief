@@ -90,6 +90,9 @@ model UserSettings {
   referralCount   Int       @default(0) // 추천한 사람 수
   preRegistered   Boolean   @default(false) // 유료 플랜 사전등록 여부
   preRegisteredAt DateTime? // 사전등록 시간
+  surveyPreferredBriefing String?  // 설정 설문조사에서 선택한 브리핑 유형
+  surveyFeedback          String?  @db.Text // 설정 설문조사 자유 피드백
+  surveySubmittedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 }
