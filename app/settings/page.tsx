@@ -100,9 +100,9 @@ const parseSurveyFeedback = (feedback?: string | null) => {
   }
 
   const patterns: Record<'good' | 'bad' | 'etc', RegExp> = {
-    good: /좋았던점\s*:\s*(.*?)(?=\n아쉬웠던점\s*:|\n기타후기\s*:|$)/s,
-    bad: /아쉬웠던점\s*:\s*(.*?)(?=\n기타후기\s*:|$)/s,
-    etc: /기타후기\s*:\s*(.*)$/s
+    good: /좋았던점\s*:\s*([\s\S]*?)(?=\n아쉬웠던점\s*:|\n기타후기\s*:|$)/,
+    bad: /아쉬웠던점\s*:\s*([\s\S]*?)(?=\n기타후기\s*:|$)/,
+    etc: /기타후기\s*:\s*([\s\S]*)$/
   }
 
   const cleaned = feedback.replace(/\r\n/g, '\n')
