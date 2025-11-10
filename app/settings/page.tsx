@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import React from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
@@ -90,6 +90,38 @@ const SURVEY_LABEL_MAP = SURVEY_OPTIONS.reduce<Record<string, string>>((acc, opt
   return acc
 }, {})
 
+const parseSurveyFeedback = (feedback?: string | null) => {
+  if (!feedback) {
+    return {
+      good: '',
+      bad: '',
+      etc: ''
+    }
+  }
+
+  const patterns: Record<'good' | 'bad' | 'etc', RegExp> = {
+    good: /좋았던점\s*:\s*(.*?)(?=\n아쉬웠던점\s*:|\n기타후기\s*:|$)/s,
+    bad: /아쉬웠던점\s*:\s*(.*?)(?=\n기타후기\s*:|$)/s,
+    etc: /기타후기\s*:\s*(.*)$/s
+  }
+
+  const cleaned = feedback.replace(/\r\n/g, '\n')
+
+  const goodMatch = cleaned.match(patterns.good)
+  const badMatch = cleaned.match(patterns.bad)
+  const etcMatch = cleaned.match(patterns.etc)
+
+  return {
+    good: goodMatch?.[1]?.trim() || '',
+    bad: badMatch?.[1]?.trim() || '',
+    etc: etcMatch?.[1]?.trim() || feedback.trim()
+  }
+}
+
+const formatSurveyFeedback = (good: string, bad: string, etc: string) => {
+  return `좋았던점 : ${good}\n아쉬웠던점 : ${bad}\n기타후기 : ${etc}`.trim()
+}
+
 export default function SettingsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -106,12 +138,21 @@ export default function SettingsPage() {
   const [isAddingWorkspace, setIsAddingWorkspace] = useState(false)
   const [showSurveyModal, setShowSurveyModal] = useState(false)
   const [surveySelection, setSurveySelection] = useState<string | null>(null)
-  const [surveyFeedback, setSurveyFeedback] = useState('')
+  const [surveyGoodFeedback, setSurveyGoodFeedback] = useState('')
+  const [surveyBadFeedback, setSurveyBadFeedback] = useState('')
+  const [surveyEtcFeedback, setSurveyEtcFeedback] = useState('')
   const [surveyError, setSurveyError] = useState('')
   const [isSubmittingSurvey, setIsSubmittingSurvey] = useState(false)
   const [isLoadingSurvey, setIsLoadingSurvey] = useState(false)
   const [surveySubmittedAt, setSurveySubmittedAt] = useState<string | null>(null)
-  const isSurveyReadyToSubmit = Boolean(surveySelection && surveyFeedback.trim().length > 0)
+  const isSurveyReadyToSubmit = useMemo(() => {
+    return Boolean(
+      surveySelection &&
+      surveyGoodFeedback.trim().length > 0 &&
+      surveyBadFeedback.trim().length > 0 &&
+      surveyEtcFeedback.trim().length > 0
+    )
+  }, [surveySelection, surveyGoodFeedback, surveyBadFeedback, surveyEtcFeedback])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -196,16 +237,23 @@ export default function SettingsPage() {
         const survey = data?.survey
         if (survey) {
           setSurveySelection(survey.preferredBriefing || null)
-          setSurveyFeedback(survey.feedback || '')
+          const parsed = parseSurveyFeedback(survey.feedback)
+          setSurveyGoodFeedback(parsed.good)
+          setSurveyBadFeedback(parsed.bad)
+          setSurveyEtcFeedback(parsed.etc)
           setSurveySubmittedAt(survey.submittedAt || null)
         } else {
           setSurveySelection(null)
-          setSurveyFeedback('')
+          setSurveyGoodFeedback('')
+          setSurveyBadFeedback('')
+          setSurveyEtcFeedback('')
           setSurveySubmittedAt(null)
         }
       } else if (response.status === 404) {
         setSurveySelection(null)
-        setSurveyFeedback('')
+        setSurveyGoodFeedback('')
+        setSurveyBadFeedback('')
+        setSurveyEtcFeedback('')
         setSurveySubmittedAt(null)
       } else {
         throw new Error('Failed to load survey response')
@@ -370,14 +418,25 @@ export default function SettingsPage() {
   const handleSubmitSurvey = async (event?: React.FormEvent<HTMLFormElement>) => {
     event?.preventDefault()
 
-    if (!surveySelection || !surveyFeedback.trim()) {
-      setSurveyError('가장 도움이 된 브리핑과 후기를 모두 작성해주세요.')
+    if (
+      !surveySelection ||
+      !surveyGoodFeedback.trim() ||
+      !surveyBadFeedback.trim() ||
+      !surveyEtcFeedback.trim()
+    ) {
+      setSurveyError('가장 도움이 된 브리핑과 세 가지 후기를 모두 작성해주세요.')
       return
     }
 
     try {
       setIsSubmittingSurvey(true)
       setSurveyError('')
+
+      const formattedFeedback = formatSurveyFeedback(
+        surveyGoodFeedback.trim(),
+        surveyBadFeedback.trim(),
+        surveyEtcFeedback.trim()
+      )
 
       const response = await fetch('/api/user/settings/survey', {
         method: 'POST',
@@ -386,7 +445,7 @@ export default function SettingsPage() {
         },
         body: JSON.stringify({
           preferredBriefing: surveySelection,
-          feedback: surveyFeedback.trim()
+          feedback: formattedFeedback
         })
       })
 
@@ -583,7 +642,7 @@ export default function SettingsPage() {
             {isLoadingSurvey ? (
               <p>설문 정보를 불러오는 중입니다...</p>
             ) : surveySubmittedAt ? (
-              <div className="space-y-1">
+              <div className="space-y-3">
                 {surveySelection && (
                   <p>
                     최근 응답:{' '}
@@ -599,6 +658,21 @@ export default function SettingsPage() {
                     })}
                   </span>
                 </p>
+                <div className="space-y-1 text-white/80">
+                  <p className="text-white/90 font-semibold">최근 후기</p>
+                  <p>
+                    <span className="text-white/60">좋았던 점</span>:{' '}
+                    <span className="text-white">{surveyGoodFeedback || '-'}</span>
+                  </p>
+                  <p>
+                    <span className="text-white/60">아쉬웠던 점</span>:{' '}
+                    <span className="text-white">{surveyBadFeedback || '-'}</span>
+                  </p>
+                  <p>
+                    <span className="text-white/60">기타 후기</span>:{' '}
+                    <span className="text-white">{surveyEtcFeedback || '-'}</span>
+                  </p>
+                </div>
               </div>
             ) : (
               <p>설문에 참여하고 OwnBrief가 더 나은 브리핑을 준비할 수 있도록 도와주세요.</p>
@@ -926,72 +1000,102 @@ export default function SettingsPage() {
             className="liquid-glass-card p-6 max-w-md w-full rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <form onSubmit={handleSubmitSurvey} className="space-y-5">
-              <div>
-                <h3 className="text-xl font-bold text-white mb-1">OwnBrief 설문</h3>
-                <p className="text-sm text-white/70">
-                  가장 도움이 된 브리핑과 느낀 점을 알려주세요. 더 좋은 경험을 준비하는 데 큰 도움이 됩니다.
-                </p>
-              </div>
+            <form onSubmit={handleSubmitSurvey} className="flex flex-col gap-5 max-h-[75vh]">
+              <div className="overflow-y-auto pr-1 space-y-5">
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-1">OwnBrief 설문</h3>
+                  <p className="text-sm text-white/70">
+                    가장 도움이 된 브리핑과 느낀 점을 알려주세요. 더 좋은 경험을 준비하는 데 큰 도움이 됩니다.
+                  </p>
+                </div>
 
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-white/80">가장 도움이 된 브리핑</p>
                 <div className="space-y-2">
-                  {SURVEY_OPTIONS.map((option) => {
-                    const isSelected = surveySelection === option.value
-                    return (
-                      <label
-                        key={option.value}
-                        className={`block px-4 py-3 rounded-xl liquid-glass cursor-pointer transition-all ${
-                          isSelected ? 'bg-white/10 ring-2 ring-white/40' : 'hover:bg-white/5'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between space-x-4">
-                          <div className="flex items-center space-x-3">
-                            <span className="text-white font-medium">{option.label}</span>
+                  <p className="text-sm font-medium text-white/80">가장 도움이 된 브리핑</p>
+                  <div className="space-y-2">
+                    {SURVEY_OPTIONS.map((option) => {
+                      const isSelected = surveySelection === option.value
+                      return (
+                        <label
+                          key={option.value}
+                          className={`block px-4 py-3 rounded-xl liquid-glass cursor-pointer transition-all ${
+                            isSelected ? 'bg-white/10 ring-2 ring-white/40' : 'hover:bg-white/5'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between space-x-4">
+                            <div className="flex items-center space-x-3">
+                              <span className="text-white font-medium">{option.label}</span>
+                            </div>
+                            <span
+                              className={`w-5 h-5 rounded-full border-2 ${
+                                isSelected ? 'border-white bg-white' : 'border-white/40'
+                              }`}
+                            />
                           </div>
-                          <span
-                            className={`w-5 h-5 rounded-full border-2 ${
-                              isSelected ? 'border-white bg-white' : 'border-white/40'
-                            }`}
+                          <input
+                            type="radio"
+                            name="surveyPreferredBriefing"
+                            value={option.value}
+                            className="sr-only"
+                            checked={isSelected}
+                            onChange={() => setSurveySelection(option.value)}
                           />
-                        </div>
-                        <input
-                          type="radio"
-                          name="surveyPreferredBriefing"
-                          value={option.value}
-                          className="sr-only"
-                          checked={isSelected}
-                          onChange={() => setSurveySelection(option.value)}
-                        />
-                      </label>
-                    )
-                  })}
+                        </label>
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  기타 후기
-                </label>
-                <textarea
-                  value={surveyFeedback}
-                  onChange={(e) => setSurveyFeedback(e.target.value)}
-                  rows={4}
-                  maxLength={1000}
-                  placeholder="어떤 점이 가장 도움이 되었는지 솔직한 의견을 들려주세요."
-                  className="w-full px-4 py-3 liquid-glass rounded-xl text-white placeholder:text-white/40 focus:ring-2 focus:ring-white/30 focus:outline-none transition-all resize-none"
-                />
-                <p className="text-xs text-white/60 mt-2">
-                  최소 한 글자 이상 작성해야 제출할 수 있어요. (최대 1000자)
-                </p>
-              </div>
-
-              {surveyError && (
-                <div className="p-3 rounded-lg liquid-glass border border-red-400/30 text-sm text-red-100">
-                  {surveyError}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-white/80 mb-2">
+                      좋았던 점
+                    </label>
+                    <textarea
+                      value={surveyGoodFeedback}
+                      onChange={(e) => setSurveyGoodFeedback(e.target.value)}
+                      rows={4}
+                      maxLength={1000}
+                      placeholder="OwnBrief 브리핑에서 가장 마음에 들었던 점을 적어주세요."
+                      className="w-full px-4 py-3 liquid-glass rounded-xl text-white placeholder:text-white/40 focus:ring-2 focus:ring-white/30 focus:outline-none transition-all resize-none overflow-y-auto"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white/80 mb-2">
+                      아쉬웠던 점
+                    </label>
+                    <textarea
+                      value={surveyBadFeedback}
+                      onChange={(e) => setSurveyBadFeedback(e.target.value)}
+                      rows={4}
+                      maxLength={1000}
+                      placeholder="어떤 점이 개선되었으면 좋겠는지 알려주세요."
+                      className="w-full px-4 py-3 liquid-glass rounded-xl text-white placeholder:text-white/40 focus:ring-2 focus:ring-white/30 focus:outline-none transition-all resize-none overflow-y-auto"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white/80 mb-2">
+                      기타 후기
+                    </label>
+                    <textarea
+                      value={surveyEtcFeedback}
+                      onChange={(e) => setSurveyEtcFeedback(e.target.value)}
+                      rows={4}
+                      maxLength={1000}
+                      placeholder="추가로 전하고 싶은 의견이 있다면 자유롭게 작성해주세요."
+                      className="w-full px-4 py-3 liquid-glass rounded-xl text-white placeholder:text-white/40 focus:ring-2 focus:ring-white/30 focus:outline-none transition-all resize-none overflow-y-auto"
+                    />
+                    <p className="text-xs text-white/60 mt-2">
+                      각 입력란은 최소 한 글자 이상 작성해야 제출할 수 있어요. (각 최대 1000자)
+                    </p>
+                  </div>
                 </div>
-              )}
+
+                {surveyError && (
+                  <div className="p-3 rounded-lg liquid-glass border border-red-400/30 text-sm text-red-100">
+                    {surveyError}
+                  </div>
+                )}
+              </div>
 
               <div className="flex space-x-3">
                 <button

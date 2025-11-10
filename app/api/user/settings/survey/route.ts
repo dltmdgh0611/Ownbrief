@@ -73,9 +73,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Feedback is required' }, { status: 400 })
     }
 
-    if (trimmedFeedback.length > 1000) {
+    if (trimmedFeedback.length > 3200) {
       return NextResponse.json(
-        { error: 'Feedback must be 1000 characters or less' },
+        { error: 'Feedback must be 3200 characters or less' },
         { status: 400 },
       )
     }
