@@ -271,7 +271,16 @@ export class BriefingService {
 
       // 사용자 조회
       const user = await prisma.user.findUnique({
-        where: { email: userEmail }
+        where: { email: userEmail },
+        include: {
+          connectedServices: {
+            select: {
+              serviceName: true,
+              accessToken: true,
+              enabled: true,
+            }
+          }
+        }
       })
 
       if (!user) {
@@ -347,7 +356,16 @@ export class BriefingService {
       console.log(`🔨 [키워드 생성] 백그라운드 키워드 생성 시작: userEmail=${userEmail}`)
 
       const user = await prisma.user.findUnique({
-        where: { email: userEmail }
+        where: { email: userEmail },
+        include: {
+          connectedServices: {
+            select: {
+              serviceName: true,
+              accessToken: true,
+              enabled: true,
+            },
+          },
+        },
       })
 
       if (!user) {
@@ -355,6 +373,16 @@ export class BriefingService {
         throw new Error('User not found')
       }
       console.log(`✅ [키워드 생성] 사용자 조회 완료: userId=${user.id}`)
+
+      const hasYoutubeConnection = user.connectedServices.some(service =>
+        service.serviceName === 'youtube' &&
+        service.enabled !== false &&
+        typeof service.accessToken === 'string' &&
+        service.accessToken.trim().length > 0
+      )
+      if (!hasYoutubeConnection) {
+        console.log(`⚠️ [키워드 생성] YouTube 서비스가 연결되어 있지 않아 페르소나 관심사를 활용해 키워드를 생성합니다: userEmail=${userEmail}`)
+      }
 
       // 오늘 이미 생성된 키워드가 있는지 확인
       const now = new Date()
@@ -445,25 +473,31 @@ export class BriefingService {
   static async extractKeywordsOnly(userEmail: string): Promise<Array<{ level1: string, level2: string, level3: string }>> {
     try {
       console.log(`🔍 [키워드 추출] 시작: userEmail=${userEmail}`)
-      
-      const { YouTubeClient } = await import('@/backend/lib/youtube')
-      const { extractDeepKeywords } = await import('@/backend/lib/gemini')
-      
-      // 1. YouTube 최근 저장 영상 5개 가져오기
-      console.log(`📺 [키워드 추출] YouTube 영상 수집 시작...`)
-      const recentVideos = await YouTubeClient.getRecentSavedVideos(userEmail, 5)
-      console.log(`📊 [키워드 추출] YouTube 영상 수집 결과: ${recentVideos.length}개`)
-      
-      if (recentVideos.length === 0) {
-        console.error(`❌ [키워드 추출] YouTube 영상이 0개: userEmail=${userEmail}`)
-        console.error(`   → 키워드 추출이 불가능합니다. 사용자가 유튜브에 영상을 저장했는지 확인하세요.`)
-        return []
-      }
 
-      // 수집된 영상 정보 로그
-      recentVideos.forEach((video, idx) => {
-        console.log(`  📺 [키워드 추출] 영상 ${idx + 1}: id=${video.id}, title="${video.title.substring(0, 60)}${video.title.length > 60 ? '...' : ''}"`)
-      })
+      const hasYoutubeConnection = await this.hasActiveYouTubeConnection(userEmail)
+      let recentVideos: Array<{ id: string, title: string, description: string }> = []
+
+      if (hasYoutubeConnection) {
+        try {
+          const { YouTubeClient } = await import('@/backend/lib/youtube')
+          console.log(`📺 [키워드 추출] YouTube 영상 수집 시작...`)
+          recentVideos = await YouTubeClient.getRecentSavedVideos(userEmail, 5)
+          console.log(`📊 [키워드 추출] YouTube 영상 수집 결과: ${recentVideos.length}개`)
+
+          if (recentVideos.length === 0) {
+            console.warn(`⚠️ [키워드 추출] 사용할 수 있는 YouTube 영상이 없습니다. 페르소나 관심사만 활용합니다: userEmail=${userEmail}`)
+          } else {
+            recentVideos.forEach((video, idx) => {
+              console.log(`  📺 [키워드 추출] 영상 ${idx + 1}: id=${video.id}, title="${video.title.substring(0, 60)}${video.title.length > 60 ? '...' : ''}"`)
+            })
+          }
+        } catch (youtubeError: any) {
+          console.error(`❌ [키워드 추출] YouTube 데이터 수집 오류 (페르소나로 대체):`, youtubeError.message)
+          recentVideos = []
+        }
+      } else {
+        console.log(`⚠️ [키워드 추출] YouTube 서비스 미연결 상태입니다. 페르소나 관심사만 활용합니다: userEmail=${userEmail}`)
+      }
 
       // 2. 페르소나 가져오기
       console.log(`👤 [키워드 추출] 페르소나 정보 조회 중...`)
@@ -480,6 +514,13 @@ export class BriefingService {
         console.error(`⚠️ [키워드 추출] 페르소나 조회 실패 (계속 진행):`, personaError.message)
         personaInterests = []
       }
+
+      if (recentVideos.length === 0 && personaInterests.length === 0) {
+        console.warn(`⚠️ [키워드 추출] YouTube 데이터와 페르소나 관심사가 모두 없어 키워드를 생성할 수 없습니다: userEmail=${userEmail}`)
+        return []
+      }
+
+      const { extractDeepKeywords } = await import('@/backend/lib/gemini')
 
       // 3. 키워드 추출 (YouTube 70% + 페르소나 30%)
       console.log(`🤖 [키워드 추출] Gemini AI를 통한 키워드 추출 시작...`)
@@ -502,7 +543,7 @@ export class BriefingService {
         })
       } else {
         console.error(`❌ [키워드 추출] 유효한 키워드가 0개: userEmail=${userEmail}`)
-        console.error(`   → YouTube 영상은 ${recentVideos.length}개 수집되었지만 유효한 키워드 추출에 실패했습니다.`)
+        console.error(`   → 입력 데이터: YouTube 영상 ${recentVideos.length}개, 페르소나 관심사 ${personaInterests.length}개`)
       }
       
       return validKeywords
@@ -552,13 +593,16 @@ export class BriefingService {
       // 1. YouTube 최근 저장 영상 5개 가져오기
       const recentVideos = await YouTubeClient.getRecentSavedVideos(userEmail, 5)
       if (recentVideos.length === 0) {
-        console.log('⚠️ YouTube 영상 없음 - 트렌드 섹션 skip')
-        return []
+        console.log('⚠️ YouTube 영상 없음 - 페르소나 관심사만으로 트렌드 키워드를 생성합니다.')
       }
 
       // 2. 페르소나 가져오기
       const persona = await PersonaService.getPersona(userEmail)
       const personaInterests = persona?.interests || []
+      if (personaInterests.length === 0 && recentVideos.length === 0) {
+        console.log('⚠️ 페르소나 관심사와 YouTube 데이터가 모두 없어 트렌드 주제를 생성할 수 없습니다.')
+        return []
+      }
 
       // 3. 키워드 추출 (YouTube 70% + 페르소나 30%)
       const keywords = await extractDeepKeywords(
@@ -1103,6 +1147,41 @@ ${data && data.length > 0 ? JSON.stringify(data, null, 2) : '최근 멘션된 �
         },
       },
     })
+  }
+
+  /**
+   * YouTube 서비스 연결 여부 확인
+   */
+  private static async hasActiveYouTubeConnection(userEmail: string): Promise<boolean> {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { email: userEmail },
+        select: {
+          connectedServices: {
+            where: { serviceName: 'youtube' },
+            select: {
+              enabled: true,
+              accessToken: true,
+            }
+          }
+        }
+      })
+
+      if (!user) {
+        return false
+      }
+
+      const youtubeService = user.connectedServices[0]
+      return Boolean(
+        youtubeService &&
+        youtubeService.enabled !== false &&
+        typeof youtubeService.accessToken === 'string' &&
+        youtubeService.accessToken.trim().length > 0
+      )
+    } catch (error) {
+      console.error(`❌ YouTube 연결 여부 확인 오류:`, error)
+      return false
+    }
   }
 }
 
