@@ -262,34 +262,46 @@ export default function OnboardingPage() {
         </div>
         <div className="w-full max-w-[480px] mx-auto text-center relative z-10">
           <p className="text-white/90 text-lg mb-4 text-over-prism">
-            우리는 창업가들을 위한 서비스를 만들고 있습니다.<br />
-            당신의 컨텍스트를 효율적으로 전달하기 위해<br />
-            노력하고 있습니다.
+            안녕하세요, {session?.user?.name?.split(' ')[0] || '사용자'}님.
           </p>
 
           <p className="text-white/90 text-lg mb-4 text-over-prism">
-            이것은 시작에 불과하며,<br />
-            당신의 경험이 다음을 형성하는 데 도움이 됩니다.<br />
-            우리는 빠르게 반복하므로, 무엇이 당신을 즐겁게 하고,<br />
-            혼란스럽게 하며, 영감을 주는지 알려주세요.
+            {session?.user?.name?.split(' ')[0] || '사용자'}님은 온브리프를 가장 먼저 만나 보시는 분입니다.
+          </p>
+
+          <p className="text-white/90 text-lg mb-4 text-over-prism">
+            온브리프의 클로즈 베타에 함께 해주셔서 진심으로 감사 드립니다.
+          </p>
+
+          <p className="text-white/90 text-lg mb-4 text-over-prism">
+            온브리프는 바쁜 {session?.user?.name?.split(' ')[0] || '사용자'}님을 위한 서비스입니다.
+          </p>
+
+          <p className="text-white/90 text-lg mb-4 text-over-prism">
+            매일 여러 앱을 오가며 확인하던 파편화된 정보들을<br />
+            이제 딱 10분 브리핑으로 확인하세요.
+          </p>
+
+          <p className="text-white/90 text-lg mb-4 text-over-prism">
+            온브리프는 이제 시작입니다.
+          </p>
+
+          <p className="text-white/90 text-lg mb-4 text-over-prism">
+            {session?.user?.name?.split(' ')[0] || '사용자'}님의 피드백이 온브리프를 만들어갑니다.
+          </p>
+
+          <p className="text-white/90 text-lg mb-4 text-over-prism">
+            서비스를 빠르게 개선하고 있으니,<br />
+            좋은 점도 아쉬운 점도 편하게 말씀해주셔요.
           </p>
 
           <div className="my-8">
-            <p className="text-sm text-white/60 mb-4 text-over-prism">
-              보안적으로 우리는 데이터베이스에 당신의 정보를<br />
-              저장하지 않고 분석 후 바로 폐기한다
-            </p>
-
             <p className="text-white/90 text-lg mb-6 text-over-prism">
-              감사하는 마음으로,
-            </p>
-
-            <p className="text-3xl font-signature text-white italic text-over-prism">
-              박영민
+              감사한 마음을 담아,
             </p>
             
             <p className="text-white/70 text-sm mt-2 text-over-prism">
-              Ownbrief team 😊
+              온브리프 팀 드림
             </p>
           </div>
 
