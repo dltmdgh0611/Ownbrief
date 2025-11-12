@@ -90,6 +90,8 @@ const SURVEY_LABEL_MAP = SURVEY_OPTIONS.reduce<Record<string, string>>((acc, opt
   return acc
 }, {})
 
+const MIN_SURVEY_FEEDBACK_LENGTH = 30
+
 const parseSurveyFeedback = (feedback?: string | null) => {
   if (!feedback) {
     return {
@@ -148,9 +150,9 @@ export default function SettingsPage() {
   const isSurveyReadyToSubmit = useMemo(() => {
     return Boolean(
       surveySelection &&
-      surveyGoodFeedback.trim().length > 0 &&
-      surveyBadFeedback.trim().length > 0 &&
-      surveyEtcFeedback.trim().length > 0
+      surveyGoodFeedback.trim().length > MIN_SURVEY_FEEDBACK_LENGTH &&
+      surveyBadFeedback.trim().length > MIN_SURVEY_FEEDBACK_LENGTH &&
+      surveyEtcFeedback.trim().length > MIN_SURVEY_FEEDBACK_LENGTH
     )
   }, [surveySelection, surveyGoodFeedback, surveyBadFeedback, surveyEtcFeedback])
 
@@ -418,13 +420,17 @@ export default function SettingsPage() {
   const handleSubmitSurvey = async (event?: React.FormEvent<HTMLFormElement>) => {
     event?.preventDefault()
 
+    const trimmedGood = surveyGoodFeedback.trim()
+    const trimmedBad = surveyBadFeedback.trim()
+    const trimmedEtc = surveyEtcFeedback.trim()
+
     if (
       !surveySelection ||
-      !surveyGoodFeedback.trim() ||
-      !surveyBadFeedback.trim() ||
-      !surveyEtcFeedback.trim()
+      trimmedGood.length <= MIN_SURVEY_FEEDBACK_LENGTH ||
+      trimmedBad.length <= MIN_SURVEY_FEEDBACK_LENGTH ||
+      trimmedEtc.length <= MIN_SURVEY_FEEDBACK_LENGTH
     ) {
-      setSurveyError('가장 도움이 된 브리핑과 세 가지 후기를 모두 작성해주세요.')
+      setSurveyError(`가장 도움이 된 브리핑을 선택하고, 세 가지 후기를 각각 ${MIN_SURVEY_FEEDBACK_LENGTH + 1}자 이상 작성해주세요.`)
       return
     }
 
@@ -433,9 +439,9 @@ export default function SettingsPage() {
       setSurveyError('')
 
       const formattedFeedback = formatSurveyFeedback(
-        surveyGoodFeedback.trim(),
-        surveyBadFeedback.trim(),
-        surveyEtcFeedback.trim()
+        trimmedGood,
+        trimmedBad,
+        trimmedEtc
       )
 
       const response = await fetch('/api/user/settings/survey', {
@@ -1085,7 +1091,7 @@ export default function SettingsPage() {
                       className="w-full px-4 py-3 liquid-glass rounded-xl text-white placeholder:text-white/40 focus:ring-2 focus:ring-white/30 focus:outline-none transition-all resize-none overflow-y-auto"
                     />
                     <p className="text-xs text-white/60 mt-2">
-                      각 입력란은 최소 한 글자 이상 작성해야 제출할 수 있어요. (각 최대 1000자)
+                      각 입력란은 최소 {MIN_SURVEY_FEEDBACK_LENGTH + 1}자부터, 최대 1000자까지 작성할 수 있어요.
                     </p>
                   </div>
                 </div>
